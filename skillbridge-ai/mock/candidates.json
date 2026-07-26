@@ -1,0 +1,7 @@
+[
+  { "id": "cd-1", "name": "Arjun Mehta", "appliedFor": "Site Electrician", "matchScore": 92, "experienceYears": 5, "skills": ["Electrical Wiring","Panel Installation"], "status": "interview", "location": "Andheri East" },
+  { "id": "cd-2", "name": "Priya Sharma", "appliedFor": "Site Electrician", "matchScore": 87, "experienceYears": 4, "skills": ["Electrical Wiring","Safety Compliance"], "status": "shortlisted", "location": "Ghatkopar" },
+  { "id": "cd-3", "name": "Mohammed Iqbal", "appliedFor": "HVAC Technician", "matchScore": 81, "experienceYears": 3, "skills": ["AC Repair"], "status": "applied", "location": "Kurla" },
+  { "id": "cd-4", "name": "Sunita Rao", "appliedFor": "Facility Lead", "matchScore": 76, "experienceYears": 6, "skills": ["Team Supervision"], "status": "applied", "location": "Vikhroli" },
+  { "id": "cd-5", "name": "Deepak Verma", "appliedFor": "Site Electrician", "matchScore": 70, "experienceYears": 2, "skills": ["Electrical Wiring"], "status": "rejected", "location": "Bhandup" }
+]

@@ -1,0 +1,5 @@
+[
+  { "id": "tw-1", "name": "Ramesh Yadav", "gigTitle": "AC Repair Visit", "geo": {"lat":19.1123,"lng":72.8654}, "status": "en-route", "etaMinutes": 6 },
+  { "id": "tw-2", "name": "Kavita Joshi", "gigTitle": "Wiring Inspection", "geo": {"lat":19.1301,"lng":72.8712}, "status": "on-site", "etaMinutes": 0 },
+  { "id": "tw-3", "name": "Suresh Nair", "gigTitle": "Panel Maintenance", "geo": {"lat":19.1050,"lng":72.8600}, "status": "completed", "etaMinutes": 0 }
+]

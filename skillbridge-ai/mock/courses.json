@@ -1,0 +1,5 @@
+[
+  { "id": "c-1", "title": "Advanced AC & HVAC Systems", "provider": "Skill India", "durationHours": 12, "level": "Intermediate", "progress": 40, "thumbnailColor": "bridge", "matchReason": "Boosts match score for HVAC Technician roles" },
+  { "id": "c-2", "title": "Electrical Safety & Compliance", "provider": "NSDC", "durationHours": 6, "level": "Beginner", "progress": 0, "thumbnailColor": "signal", "matchReason": "Required certification for 3 nearby jobs" },
+  { "id": "c-3", "title": "Team Supervision Basics", "provider": "SkillBridge Academy", "durationHours": 8, "level": "Intermediate", "progress": 0, "thumbnailColor": "emerald", "matchReason": "Unlocks Facility Lead roles (+18% salary)" }
+]

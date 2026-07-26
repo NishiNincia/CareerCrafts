@@ -1,0 +1,6 @@
+[
+  { "id": "a-1", "jobId": "j-2", "jobTitle": "HVAC Technician", "company": "CoolAir Services", "status": "interview", "appliedAt": "2026-07-20" },
+  { "id": "a-2", "jobId": "j-3", "jobTitle": "Facility Maintenance Lead", "company": "Prestige Facilities", "status": "applied", "appliedAt": "2026-07-19" },
+  { "id": "a-3", "jobId": "j-4", "jobTitle": "Electrical Fitter", "company": "MetroPower Corp", "status": "shortlisted", "appliedAt": "2026-07-18" },
+  { "id": "a-4", "jobId": "j-1", "jobTitle": "Site Electrician", "company": "UrbanBuild Infra", "status": "hired", "appliedAt": "2026-07-10" }
+]

@@ -1,0 +1,48 @@
+{
+  "conversations": [
+    {
+      "id": "conv-1",
+      "name": "UrbanBuild Infra",
+      "role": "Hiring Manager",
+      "preview": "Great, see you on-site at 9 AM.",
+      "time": "9:41 AM",
+      "unread": 0,
+      "online": true,
+      "accent": "bridge"
+    },
+    {
+      "id": "conv-2",
+      "name": "QuickFix Home Services",
+      "role": "Operations Lead",
+      "preview": "Your gig payment has been released.",
+      "time": "Yesterday",
+      "unread": 2,
+      "online": false,
+      "accent": "signal"
+    },
+    {
+      "id": "conv-3",
+      "name": "SkillBridge Support",
+      "role": "Product Assistant",
+      "preview": "Your resume score improved to 78!",
+      "time": "Mon",
+      "unread": 0,
+      "online": true,
+      "accent": "success"
+    }
+  ],
+  "messagesByConversation": {
+    "conv-1": [
+      { "id": "m1", "sender": "them", "text": "Hi Arjun, thanks for accepting the Site Electrician role.", "time": "9:12 AM", "status": "read" },
+      { "id": "m2", "sender": "me", "text": "Thank you! Looking forward to it. What time should I arrive?", "time": "9:20 AM", "status": "read" },
+      { "id": "m3", "sender": "them", "text": "Great, see you on-site at 9 AM. Ask for Mr. Deshpande at the gate.", "time": "9:41 AM", "status": "read" }
+    ],
+    "conv-2": [
+      { "id": "m4", "sender": "them", "text": "Your latest gig has been completed and the payout is live.", "time": "Yesterday", "status": "read" },
+      { "id": "m5", "sender": "me", "text": "Perfect. I will check the payout details shortly.", "time": "Yesterday", "status": "read" }
+    ],
+    "conv-3": [
+      { "id": "m6", "sender": "them", "text": "Your resume score improved to 78. I can help you target more roles.", "time": "Mon", "status": "read" }
+    ]
+  }
+}

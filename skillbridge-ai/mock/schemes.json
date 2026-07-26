@@ -1,0 +1,5 @@
+[
+  { "id": "s-1", "name": "PM Vishwakarma Yojana", "department": "Ministry of MSME", "benefit": "Up to ₹3,00,000 collateral-free loan", "eligibility": "Skilled artisans & tradespeople", "deadline": "2026-09-30", "category": "Financial Support" },
+  { "id": "s-2", "name": "PMKVY 4.0", "department": "Ministry of Skill Development", "benefit": "Free certified skill training + stipend", "eligibility": "Workers aged 18-45", "category": "Skilling" },
+  { "id": "s-3", "name": "e-Shram Card Benefits", "department": "Ministry of Labour", "benefit": "Accident insurance cover ₹2,00,000", "eligibility": "All unorganised sector workers", "category": "Insurance" }
+]

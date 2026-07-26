@@ -1,0 +1,5 @@
+[
+  { "id": "r-1", "authorName": "Arjun Mehta", "rating": 5, "comment": "Paid on time and the site supervisor was clear about expectations.", "jobTitle": "Site Electrician", "date": "2026-07-15" },
+  { "id": "r-2", "authorName": "Priya Sharma", "rating": 4, "comment": "Good work environment, transport reimbursement was a nice touch.", "jobTitle": "Site Electrician", "date": "2026-07-08" },
+  { "id": "r-3", "authorName": "Mohammed Iqbal", "rating": 4.5, "comment": "Fair pay for the gig, would take another shift with them.", "jobTitle": "HVAC Technician", "date": "2026-06-29" }
+]

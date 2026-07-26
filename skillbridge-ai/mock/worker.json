@@ -1,0 +1,13 @@
+{
+  "id": "w-1001",
+  "name": "Arjun Mehta",
+  "role": "worker",
+  "title": "Electrician & Field Technician",
+  "location": "Andheri East, Mumbai",
+  "geo": { "lat": 19.1197, "lng": 72.8697 },
+  "resumeScore": 78,
+  "skills": ["Electrical Wiring", "AC Repair", "Panel Installation", "Safety Compliance"],
+  "rating": 4.7,
+  "totalJobsCompleted": 132,
+  "memberSince": "2023-02-10"
+}

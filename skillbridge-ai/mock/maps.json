@@ -1,0 +1,75 @@
+{
+  "worker": {
+    "id": "me",
+    "name": "Aarav Sharma",
+    "geo": { "lat": 19.1138, "lng": 72.8722 },
+    "status": "en-route",
+    "etaMinutes": 12
+  },
+  "employer": {
+    "id": "employer-1",
+    "name": "UrbanBuild Infra",
+    "geo": { "lat": 19.1214, "lng": 72.8862 },
+    "etaMinutes": 18,
+    "address": "Powai Lake View, Mumbai"
+  },
+  "jobs": [
+    {
+      "id": "j-1",
+      "title": "Site Electrician",
+      "company": "UrbanBuild Infra",
+      "geo": { "lat": 19.1176, "lng": 72.9060 },
+      "distanceKm": 3.2,
+      "matchScore": 92
+    },
+    {
+      "id": "j-2",
+      "title": "HVAC Technician",
+      "company": "CoolAir Services",
+      "geo": { "lat": 19.0972, "lng": 72.8908 },
+      "distanceKm": 4.7,
+      "matchScore": 85
+    },
+    {
+      "id": "j-3",
+      "title": "Facility Maintenance Lead",
+      "company": "Prestige Facilities",
+      "geo": { "lat": 19.1079, "lng": 72.8992 },
+      "distanceKm": 6.8,
+      "matchScore": 74
+    }
+  ],
+  "gigs": [
+    {
+      "id": "g-1",
+      "businessName": "QuickFix Home Services",
+      "category": "AC Repair Visit",
+      "geo": { "lat": 19.1123, "lng": 72.8654 },
+      "distanceKm": 1.8,
+      "etaMinutes": 9,
+      "payment": 650
+    },
+    {
+      "id": "g-2",
+      "businessName": "Spark Electricals",
+      "category": "Wiring Inspection",
+      "geo": { "lat": 19.1301, "lng": 72.8712 },
+      "distanceKm": 3.4,
+      "etaMinutes": 14,
+      "payment": 900
+    }
+  ],
+  "routePoints": [
+    { "lat": 19.1138, "lng": 72.8722 },
+    { "lat": 19.1152, "lng": 72.8762 },
+    { "lat": 19.1184, "lng": 72.8804 },
+    { "lat": 19.1214, "lng": 72.8862 }
+  ],
+  "trackingPoints": [
+    { "lat": 19.1138, "lng": 72.8722 },
+    { "lat": 19.1146, "lng": 72.8742 },
+    { "lat": 19.1157, "lng": 72.8768 },
+    { "lat": 19.1174, "lng": 72.8803 },
+    { "lat": 19.1191, "lng": 72.8837 }
+  ]
+}

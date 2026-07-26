@@ -1,0 +1,42 @@
+[
+  {
+    "id": "n-1",
+    "title": "New gig alert",
+    "description": "QuickFix Home Services sent a live request nearby.",
+    "time": "10 min ago",
+    "unread": true,
+    "category": "gig"
+  },
+  {
+    "id": "n-2",
+    "title": "Job update",
+    "description": "UrbanBuild Infra shortlisted your application for an on-site interview.",
+    "time": "45 min ago",
+    "unread": true,
+    "category": "job"
+  },
+  {
+    "id": "n-3",
+    "title": "Interview reminder",
+    "description": "Interview at Prestige Facilities is scheduled for tomorrow at 11:00 AM.",
+    "time": "1 hr ago",
+    "unread": false,
+    "category": "interview"
+  },
+  {
+    "id": "n-4",
+    "title": "Payment released",
+    "description": "₹650 was credited for your latest completed gig.",
+    "time": "2 hrs ago",
+    "unread": false,
+    "category": "payment"
+  },
+  {
+    "id": "n-5",
+    "title": "Scheme update",
+    "description": "PM Vishwakarma Yojana applications close in 10 days.",
+    "time": "2 days ago",
+    "unread": false,
+    "category": "scheme"
+  }
+]
