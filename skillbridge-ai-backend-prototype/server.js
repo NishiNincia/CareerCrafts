@@ -3,13 +3,15 @@ import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import fs from 'fs';
 import path from 'path';
+import bcrypt from 'bcrypt';
 import { fileURLToPath } from 'url';
+import pool from './src/config/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const DEFAULT_PORT = Number(process.env.PORT || 4000);
 const SECRET = process.env.JWT_SECRET || 'skillbridge-prototype-secret';
 
 app.use(cors());
@@ -21,22 +23,20 @@ function readJson(fileName) {
   return JSON.parse(fs.readFileSync(path.join(mockDir, fileName), 'utf8'));
 }
 
-const users = [
-  {
-    id: 'u-1',
-    name: 'Arjun Mehta',
-    email: 'arjun@example.com',
-    password: 'password123',
-    role: 'worker',
-  },
-  {
-    id: 'u-2',
-    name: 'Mina Chen',
-    email: 'mina@example.com',
-    password: 'password123',
-    role: 'employer',
-  },
-];
+async function initializeDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      role VARCHAR(50) NOT NULL DEFAULT 'worker',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
+
+await initializeDatabase();
 
 function createToken(user) {
   return jwt.sign({ id: user.id, email: user.email, role: user.role }, SECRET, { expiresIn: '8h' });
@@ -61,56 +61,92 @@ app.get('/health', (req, res) => {
   res.json({ success: true, message: 'SkillBridge prototype backend is running' });
 });
 
-app.post('/api/v1/auth/login', (req, res) => {
+async function handleLogin(req, res) {
   const { email, password } = req.body || {};
-  const user = users.find((entry) => entry.email === email && entry.password === password);
 
-  if (!user) {
-    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const passwordMatches = await bcrypt.compare(password, user.password);
+    if (!passwordMatches) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const token = createToken(user);
+    return res.json({
+      success: true,
+      message: 'Logged in successfully',
+      data: {
+        user: { id: user.id, name: user.name, email: user.email, role: user.role },
+        token,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
+}
 
-  const token = createToken(user);
-  return res.json({
-    success: true,
-    message: 'Logged in successfully',
-    data: {
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
-      token,
-    },
-  });
-});
-
-app.post('/api/v1/auth/register', (req, res) => {
+async function handleRegister(req, res) {
   const { name, email, password, role = 'worker' } = req.body || {};
   if (!name || !email || !password) {
     return res.status(400).json({ success: false, message: 'Name, email, and password are required' });
   }
 
-  const existing = users.find((entry) => entry.email === email);
-  if (existing) {
-    return res.status(409).json({ success: false, message: 'User already exists' });
+  try {
+    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ success: false, message: 'User already exists' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      `INSERT INTO users(name, email, password, role)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, email, role`,
+      [name, email, hashedPassword, role]
+    );
+
+    const newUser = result.rows[0];
+    const token = createToken(newUser);
+    return res.status(201).json({
+      success: true,
+      message: 'Account created successfully',
+      data: {
+        user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role },
+        token,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
+}
 
-  const newUser = { id: `u-${Date.now()}`, name, email, password, role };
-  users.push(newUser);
+app.post('/api/v1/auth/login', handleLogin);
+app.post('/api/auth/login', handleLogin);
+app.post('/api/v1/auth/register', handleRegister);
+app.post('/api/auth/register', handleRegister);
 
-  const token = createToken(newUser);
-  return res.status(201).json({
-    success: true,
-    message: 'Account created successfully',
-    data: {
-      user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role },
-      token,
-    },
-  });
-});
+app.get('/api/v1/me', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, name, email, role FROM users WHERE id = $1', [req.user.id]);
+    const user = result.rows[0];
 
-app.get('/api/v1/me', authMiddleware, (req, res) => {
-  const user = users.find((entry) => entry.id === req.user.id);
-  if (!user) {
-    return res.status(404).json({ success: false, message: 'User not found' });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    return res.json({ success: true, data: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
-  return res.json({ success: true, data: { id: user.id, name: user.name, email: user.email, role: user.role } });
 });
 
 app.get('/api/v1/worker/profile', authMiddleware, (req, res) => {
@@ -187,6 +223,18 @@ app.post('/api/v1/employer/gigs', authMiddleware, (req, res) => {
   res.status(201).json({ success: true, data: gig });
 });
 
-app.listen(PORT, () => {
-  console.log(`SkillBridge prototype backend running on http://localhost:${PORT}`);
-});
+function startServer(port) {
+  app.listen(port, () => {
+    console.log(`SkillBridge prototype backend running on http://localhost:${port}`);
+  }).on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.warn(`Port ${port} is busy. Trying ${port + 1}...`);
+      startServer(port + 1);
+    } else {
+      console.error(error);
+      process.exit(1);
+    }
+  });
+}
+
+startServer(DEFAULT_PORT);
