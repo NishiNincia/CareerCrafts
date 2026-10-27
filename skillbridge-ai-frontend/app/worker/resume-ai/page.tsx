@@ -1,97 +1,67 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FileText, Sparkles, Upload } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ResumeScoreCard } from "@/features/worker/components/resume-score-card";
 import { ResumeUploadCard } from "@/features/worker/components/resume-ai/resume-upload-card";
 import { ResumePreviewCard } from "@/features/worker/components/resume-ai/resume-preview-card";
 import { ResumeAnalysisCard } from "@/features/worker/components/resume-ai/resume-analysis-card";
-import { ResumeImprovementCard } from "@/features/worker/components/resume-ai/resume-improvement-card";
-import { TargetRoleCard } from "@/features/worker/components/resume-ai/target-role-card";
 import { LearningRecommendationsCard } from "@/features/worker/components/resume-ai/learning-recommendations-card";
-import { useWorkerProfile } from "@/features/worker/hooks/use-worker-data";
-import mockCourses from "@/mock/courses.json";
-
-const parsedResume = {
-  name: "Aarav Sharma",
-  title: "Frontend Developer • React • UI Systems",
-  summary:
-    "Product-focused frontend engineer with 4+ years building scalable React applications, design systems, and accessible user experiences for SaaS and B2B products.",
-  education: [
-    { school: "IIIT Bangalore", degree: "B.Tech in Information Technology", year: "2018 - 2022" },
-    { school: "NPTEL", degree: "Advanced React & UI Engineering", year: "2023" },
-  ],
-  experience: [
-    {
-      role: "Senior Frontend Developer",
-      company: "Nova Labs",
-      period: "2022 - Present",
-      bullets: ["Led migration to React 18 and improved Lighthouse score by 26%", "Built reusable design system components for 4 product teams"],
-    },
-    {
-      role: "UI Engineer",
-      company: "Northstar Studio",
-      period: "2020 - 2022",
-      bullets: ["Developed dashboards and internal tools for enterprise clients", "Improved accessibility and onboarding experience"],
-    },
-  ],
-  skills: ["React", "TypeScript", "Tailwind CSS", "Framer Motion", "Next.js", "Accessibility"],
-  projects: [
-    { name: "Design System Foundation", description: "Built a scalable component library used across 3 product lines." },
-    { name: "AI Hiring Assistant", description: "Delivered an onboarding assistant with analytics and workflow automation." },
-  ],
-  certifications: ["AWS Cloud Practitioner", "Google UX Design", "Meta Frontend Certificate"],
-};
-
-const analysisMetrics = {
-  atsScore: 83,
-  resumeScore: 86,
-  profileCompletion: 78,
-  skillStrength: 81,
-  missingKeywords: ["React Server Components", "TypeScript generics", "Design systems"],
-  missingSkills: ["Next.js App Router", "Performance tuning", "Accessibility audits"],
-};
-
-const improvementSuggestions = [
-  { title: "Quantify impact", detail: "Add measurable outcomes like engagement lift or deployment time reduction." },
-  { title: "Add AI keywords", detail: "Mention AI-powered, design systems, and performance optimization terms." },
-  { title: "Showcase leadership", detail: "Highlight mentoring, roadmap ownership, or cross-functional collaboration." },
-];
-
-const targetRoles = [
-  { label: "Frontend Developer", description: "Focus on React, TypeScript, component architecture, and accessibility." },
-  { label: "Backend Developer", description: "Emphasize API design, system architecture, and deployment reliability." },
-  { label: "Data Analyst", description: "Highlight SQL, dashboards, experiments, and data storytelling." },
-  { label: "UI Designer", description: "Center your UI craft, prototyping, design systems, and visual storytelling." },
-];
-
-const gapAnalysis = [
-  { label: "System Design", value: 72 },
-  { label: "React Ecosystem", value: 90 },
-  { label: "Accessibility", value: 78 },
-  { label: "Visual Design", value: 66 },
-];
+import { ApiError } from "@/services/api-client";
+import { resumeService, type ResumeAnalysis } from "@/services/resume.service";
+import { useAuthStore } from "@/store/auth-store";
 
 export default function ResumeAIPage() {
-  const { data: profile, isLoading } = useWorkerProfile();
-  const courses = useMemo(
-    () =>
-      mockCourses as Array<{
-        id: string;
-        title: string;
-        provider: string;
-        durationHours: number;
-        level: "Beginner" | "Intermediate" | "Advanced";
-        progress: number;
-        thumbnailColor: string;
-        matchReason: string;
-      }>,
-    []
-  );
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!accessToken) {
+      setAnalysis(null);
+      setIsLoading(false);
+      setPageError("Sign in again to analyze and view your saved resume.");
+      return () => {
+        active = false;
+      };
+    }
+
+    setIsLoading(true);
+    resumeService.latest(accessToken)
+      .then((resume) => {
+        if (!active) return;
+        setAnalysis(resume);
+        setPageError(null);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setPageError(error instanceof Error ? error.message : "Could not load your saved resume.");
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [accessToken]);
+
+  const handleFileSelect = useCallback(async (file: File) => {
+    if (!accessToken) throw new ApiError("Sign in again to analyze a resume.", 401);
+    setPageError(null);
+    try {
+      const result = await resumeService.analyze(file, accessToken);
+      setAnalysis(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Resume analysis failed.";
+      setPageError(message);
+      throw error;
+    }
+  }, [accessToken]);
 
   return (
     <div>
@@ -99,48 +69,55 @@ export default function ResumeAIPage() {
 
       <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="space-y-4">
-          {isLoading ? <Skeleton className="h-48 w-full rounded-xl" /> : profile && <ResumeScoreCard score={profile.resumeScore} />}
-
-          <ResumeUploadCard />
+          {analysis && <ResumeScoreCard score={analysis.metrics.resumeScore} />}
+          <ResumeUploadCard onFileSelect={handleFileSelect} />
 
           <Card>
             <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-bridge-500/10 text-bridge-600 dark:text-bridge-300">
                 <Upload className="h-6 w-6" />
               </div>
-              <p className="text-sm font-medium">Resume-ready for review</p>
-              <p className="text-xs text-muted-foreground">Use the pipeline below to improve ATS fit and match rate.</p>
-              <Button variant="outline" className="w-full">
-                <FileText className="h-4 w-4" /> Review resume
-              </Button>
+              <p className="text-sm font-medium">{analysis ? "Resume analyzed" : "Ready for resume review"}</p>
+              <p className="text-xs text-muted-foreground">
+                {analysis ? `Career level: ${analysis.careerLevel}` : "Upload a PDF or DOCX to extract your profile and career level."}
+              </p>
             </CardContent>
           </Card>
         </div>
 
         <div className="space-y-4">
-          <ResumePreviewCard parsedResume={parsedResume} />
-          <ResumeAnalysisCard metrics={analysisMetrics} />
-          <ResumeImprovementCard
-            suggestions={improvementSuggestions}
-            rewriteSummary="I build polished, accessible frontend experiences with React, TypeScript, and design systems — translating product needs into fast, intuitive interfaces that scale across teams."
-            experienceTips={["Add impact metrics like latency reduction and conversion uplift.", "Mention your role in cross-functional launches and release milestones."]}
-            projectTips={["Describe the problem, your solution, and the measurable outcome.", "Include stack details like Next.js, Tailwind, and testing tools."]}
-            keywords={["React", "TypeScript", "Next.js", "Design Systems", "Accessibility", "Performance"]}
-          />
-          <TargetRoleCard roles={targetRoles} gapAnalysis={gapAnalysis} />
-          <LearningRecommendationsCard courses={courses} />
-
-          <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-signal-400/10">
-            <CardContent className="flex items-center justify-between gap-4 p-5">
-              <div>
-                <p className="flex items-center gap-2 font-display text-lg font-semibold">
-                  <Sparkles className="h-4 w-4 text-signal-500" /> Resume boost mode
+          {pageError && <p role="alert" className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">{pageError}</p>}
+          {isLoading ? (
+            <Card><CardContent className="p-6 text-sm text-muted-foreground">Loading your saved resume...</CardContent></Card>
+          ) : analysis ? (
+            <>
+              <Card className="border-primary/20 bg-gradient-to-br from-background to-primary/5">
+                <CardContent className="flex items-center justify-between gap-4 p-5">
+                  <div>
+                    <p className="flex items-center gap-2 font-display text-lg font-semibold">
+                      <Sparkles className="h-4 w-4 text-signal-500" /> Career level: {analysis.careerLevel}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Estimated experience: {analysis.yearsExperience} years. Recommendations are matched to this level and your skill gaps.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              <ResumePreviewCard parsedResume={analysis} />
+              <ResumeAnalysisCard metrics={analysis.metrics} />
+              <LearningRecommendationsCard courses={analysis.recommendations} />
+            </>
+          ) : (
+            <Card>
+              <CardContent className="flex min-h-48 flex-col items-center justify-center gap-3 p-6 text-center">
+                <FileText className="h-8 w-8 text-muted-foreground" />
+                <p className="font-medium">Your resume analysis will appear here</p>
+                <p className="max-w-md text-sm text-muted-foreground">
+                  Upload a resume to extract education, experience, projects, skills, certifications, scores, and level-matched courses.
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">Apply AI suggestions to refine your summary, experience, and keywords in one pass.</p>
-              </div>
-              <Button>Generate improvements</Button>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
+import { authService } from "@/services/auth.service";
 import type { Role } from "@/types/common";
 
 const schema = z.object({
@@ -25,6 +26,7 @@ export function RegisterForm() {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
   const [role, setRole] = useState<Role>("worker");
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -32,9 +34,14 @@ export function RegisterForm() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (values: FormValues) => {
-    await new Promise((r) => setTimeout(r, 600));
-    login(role, values.name);
-    navigate(role === "worker" ? "/worker/dashboard" : "/employer/dashboard");
+    setSubmitError(null);
+    try {
+      const response = await authService.register(values.name, values.email, values.password, role);
+      login(response.user.role, response.user.name, response.token);
+      navigate(response.user.role === "worker" ? "/worker/dashboard" : "/employer/dashboard");
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Could not create your account.");
+    }
   };
 
   return (
@@ -87,6 +94,7 @@ export function RegisterForm() {
           <Input id="password" type="password" placeholder="••••••••" {...register("password")} />
           {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
         </div>
+        {submitError && <p role="alert" className="text-sm text-destructive">{submitError}</p>}
         <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           Create account

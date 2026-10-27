@@ -6,6 +6,9 @@ import path from 'path';
 import bcrypt from 'bcrypt';
 import { fileURLToPath } from 'url';
 import pool from './src/config/db.js';
+import resumeRoutes from './src/routes/resume.js';
+import recommendationRoutes from './src/routes/recommendation.js';
+import { ensureResumeSchema } from './src/services/resumeSchema.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,7 +18,7 @@ const DEFAULT_PORT = Number(process.env.PORT || 4000);
 const SECRET = process.env.JWT_SECRET || 'skillbridge-prototype-secret';
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 const mockDir = path.join(__dirname, '..', 'skillbridge-ai-frontend', 'mock');
 
@@ -26,7 +29,7 @@ function readJson(fileName) {
 async function initializeDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name VARCHAR(255) NOT NULL,
       email VARCHAR(255) UNIQUE NOT NULL,
       password TEXT NOT NULL,
@@ -37,6 +40,7 @@ async function initializeDatabase() {
 }
 
 await initializeDatabase();
+await ensureResumeSchema();
 
 function createToken(user) {
   return jwt.sign({ id: user.id, email: user.email, role: user.role }, SECRET, { expiresIn: '8h' });
@@ -132,6 +136,9 @@ app.post('/api/v1/auth/login', handleLogin);
 app.post('/api/auth/login', handleLogin);
 app.post('/api/v1/auth/register', handleRegister);
 app.post('/api/auth/register', handleRegister);
+
+app.use('/api/resumes', resumeRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
 app.get('/api/v1/me', authMiddleware, async (req, res) => {
   try {

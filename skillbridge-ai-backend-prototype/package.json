@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test src/services/resumeParser.test.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -13,6 +14,9 @@
     "dotenv": "^17.4.2",
     "express": "^4.22.2",
     "jsonwebtoken": "^9.0.3",
+    "mammoth": "^1.13.0",
+    "multer": "^2.5.0",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.22.0"
   },
   "description": "",

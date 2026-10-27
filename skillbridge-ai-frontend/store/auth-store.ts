@@ -6,7 +6,8 @@ interface AuthState {
   isAuthenticated: boolean;
   activeRole: Role;
   userName: string;
-  login: (role: Role, name: string) => void;
+  accessToken: string | null;
+  login: (role: Role, name: string, accessToken: string) => void;
   logout: () => void;
   switchRole: (role: Role) => void;
 }
@@ -18,11 +19,12 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      isAuthenticated: true,
+      isAuthenticated: false,
       activeRole: "worker",
       userName: "Arjun Mehta",
-      login: (role, name) => set({ isAuthenticated: true, activeRole: role, userName: name }),
-      logout: () => set({ isAuthenticated: false }),
+      accessToken: null,
+      login: (role, name, accessToken) => set({ isAuthenticated: true, activeRole: role, userName: name, accessToken }),
+      logout: () => set({ isAuthenticated: false, accessToken: null }),
       switchRole: (role) => set({ activeRole: role }),
     }),
     { name: "skillbridge-auth" }

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
+import { authService } from "@/services/auth.service";
 import type { Role } from "@/types/common";
 
 const schema = z.object({
@@ -24,6 +25,7 @@ export function LoginForm() {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
   const [role, setRole] = useState<Role>("worker");
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -31,9 +33,14 @@ export function LoginForm() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (values: FormValues) => {
-    await new Promise((r) => setTimeout(r, 600));
-    login(role, role === "worker" ? "Arjun Mehta" : "UrbanBuild Infra");
-    navigate(role === "worker" ? "/worker/dashboard" : "/employer/dashboard");
+    setSubmitError(null);
+    try {
+      const response = await authService.login(values.email, values.password);
+      login(response.user.role, response.user.name, response.token);
+      navigate(response.user.role === "worker" ? "/worker/dashboard" : "/employer/dashboard");
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Could not sign in.");
+    }
   };
 
   return (
@@ -73,14 +80,15 @@ export function LoginForm() {
       <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="you@example.com" {...register("email")} defaultValue="arjun.mehta@example.com" />
+          <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
           {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>
-          <Input id="password" type="password" placeholder="••••••••" {...register("password")} defaultValue="password123" />
+          <Input id="password" type="password" placeholder="••••••••" {...register("password")} />
           {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
         </div>
+        {submitError && <p role="alert" className="text-sm text-destructive">{submitError}</p>}
         <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           Sign in as {role === "worker" ? "Worker" : "Employer"}

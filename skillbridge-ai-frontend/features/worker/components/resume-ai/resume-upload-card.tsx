@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 interface ResumeUploadCardProps {
-  onFileSelect?: (file: File) => void;
+  onFileSelect?: (file: File) => Promise<void> | void;
 }
 
 const ACCEPTED_TYPES = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
@@ -32,7 +32,7 @@ export function ResumeUploadCard({ onFileSelect }: ResumeUploadCardProps) {
   }, []);
 
   const handleFiles = useCallback(
-    (incoming: FileList | File[]) => {
+    async (incoming: FileList | File[]) => {
       const candidate = Array.from(incoming)[0];
       if (!candidate) return;
 
@@ -47,10 +47,14 @@ export function ResumeUploadCard({ onFileSelect }: ResumeUploadCardProps) {
       setError(null);
       setFile(candidate);
       setProgress(40);
-      onFileSelect?.(candidate);
-
-      const timer = window.setTimeout(() => setProgress(100), 400);
-      return () => window.clearTimeout(timer);
+      try {
+        await onFileSelect?.(candidate);
+        setProgress(100);
+      } catch (uploadError) {
+        setError(uploadError instanceof Error ? uploadError.message : "Resume upload failed.");
+        setFile(null);
+        setProgress(0);
+      }
     },
     [onFileSelect, validateFile]
   );
