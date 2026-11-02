@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS resumes (
     missing_keywords TEXT[] NOT NULL DEFAULT '{}',
     missing_skills TEXT[] NOT NULL DEFAULT '{}',
     parsed_json JSONB NOT NULL,
+    source_text TEXT NOT NULL DEFAULT '',
+    analysis_cache_key TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -58,6 +60,8 @@ ALTER TABLE resumes ADD COLUMN IF NOT EXISTS skill_strength SMALLINT NOT NULL DE
 ALTER TABLE resumes ADD COLUMN IF NOT EXISTS missing_keywords TEXT[] NOT NULL DEFAULT '{}';
 ALTER TABLE resumes ADD COLUMN IF NOT EXISTS missing_skills TEXT[] NOT NULL DEFAULT '{}';
 ALTER TABLE resumes ADD COLUMN IF NOT EXISTS parsed_json JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS source_text TEXT NOT NULL DEFAULT '';
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS analysis_cache_key TEXT;
 
 DO $$
 BEGIN
@@ -83,6 +87,34 @@ BEGIN
 END $$;
 
 CREATE INDEX IF NOT EXISTS resumes_user_created_idx ON resumes (user_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS resumes_user_analysis_cache_idx
+    ON resumes (user_id, analysis_cache_key)
+    WHERE analysis_cache_key IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS resume_analysis_jobs (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cache_key TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    source_text TEXT NOT NULL,
+    job_description TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'queued'
+        CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
+    stage TEXT NOT NULL DEFAULT 'queued',
+    error_code TEXT,
+    error_message TEXT,
+    resume_id UUID REFERENCES resumes(id) ON DELETE SET NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, cache_key)
+);
+
+CREATE INDEX IF NOT EXISTS resume_analysis_jobs_user_created_idx
+    ON resume_analysis_jobs (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS resume_analysis_jobs_queued_idx
+    ON resume_analysis_jobs (status, created_at)
+    WHERE status IN ('queued', 'processing');
 
 CREATE TABLE IF NOT EXISTS resume_experience (
     id BIGSERIAL PRIMARY KEY,

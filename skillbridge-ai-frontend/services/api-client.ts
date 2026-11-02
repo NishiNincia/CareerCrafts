@@ -1,3 +1,5 @@
+import { useAuthStore } from "@/store/auth-store";
+
 /**
  * Mock API client.
  *
@@ -18,7 +20,7 @@ export async function mockRequest<T>(data: T, latency = SIMULATED_LATENCY_MS): P
 }
 
 export class ApiError extends Error {
-  constructor(message: string, public status = 500) {
+  constructor(message: string, public status = 500, public code?: string) {
     super(message);
     this.name = "ApiError";
   }
@@ -32,9 +34,12 @@ export async function backendRequest<T>(path: string, init: RequestInit = {}): P
     throw new ApiError("Could not reach the backend. Check that the API server is running.", 0);
   }
 
-  const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+  const payload = (await response.json().catch(() => null)) as { message?: string; code?: string } | null;
   if (!response.ok) {
-    throw new ApiError(payload?.message ?? "The backend request failed.", response.status);
+    if (response.status === 401) {
+      useAuthStore.getState().logout();
+    }
+    throw new ApiError(payload?.message ?? "The backend request failed.", response.status, payload?.code);
   }
 
   return payload as T;

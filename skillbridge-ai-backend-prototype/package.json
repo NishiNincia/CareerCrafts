@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "test": "node --test src/services/resumeParser.test.js"
+    "test": "node --test src/middlewares/auth.test.js src/services/resumeParser.test.js src/services/geminiService.test.js src/services/resumeAnalysis.test.js src/services/resumeAnalysisJobs.test.js src/services/resumeAnalysisWorker.test.js"
   },
   "dependencies": {
+    "@google/genai": "^1.12.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

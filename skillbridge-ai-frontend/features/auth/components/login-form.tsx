@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,6 +23,7 @@ type FormValues = z.infer<typeof schema>;
 
 export function LoginForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const login = useAuthStore((s) => s.login);
   const [role, setRole] = useState<Role>("worker");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -37,7 +38,8 @@ export function LoginForm() {
     try {
       const response = await authService.login(values.email, values.password);
       login(response.user.role, response.user.name, response.token);
-      navigate(response.user.role === "worker" ? "/worker/dashboard" : "/employer/dashboard");
+      const returnPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+      navigate(returnPath || (response.user.role === "worker" ? "/worker/dashboard" : "/employer/dashboard"));
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Could not sign in.");
     }

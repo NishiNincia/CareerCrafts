@@ -2,8 +2,12 @@ const SECTION_PATTERNS = [
     ["experience", /^(?:professional\s+)?(?:work\s+)?experience|^employment(?:\s+history)?$|^work\s+history$/i],
     ["education", /^education(?:al\s+background)?$/i],
     ["skills", /^(?:technical\s+)?skills$|^technologies$/i],
-    ["projects", /^(?:selected\s+)?projects$|^personal\s+projects$/i],
-    ["certifications", /^(?:certifications?|licenses?)$/i],
+    ["programmingLanguages", /^(?:programming\s+)?languages$/i],
+    ["projects", /^(?:(?:research|selected|personal)\s*(?:(?:&|and)\s*ai\s*\/\s*ml\s*)?)?(?:ai\s*\/\s*ml\s*)?(?:selected\s+)?projects$|^rojects$/i],
+    ["certifications", /^(?:certifications?|licenses?)(?:\s*(?:&|and)\s*achievements?)?$|^achievements?\s*(?:&|and)\s*certifications?$/i],
+    ["competitions", /^(?:hackathons?|competitions?|hackathons?\s*(?:&|and)\s*competitions?|competitions?\s*(?:&|and)\s*hackathons?)$/i],
+    ["achievements", /^(?:achievements?|awards?)$/i],
+    ["interests", /^(?:areas?\s+of\s+)?interests?$/i],
     ["summary", /^(?:professional\s+)?summary$|^profile$|^objective$/i],
 ];
 
@@ -88,13 +92,19 @@ function parseExperience(lines) {
 
         const dateMatch = line.match(DATE_PERIOD);
         if (dateMatch) {
-            const titleAndCompany = cleanLine(line.replace(dateMatch[0], "").replace(/[|–—-]+$/, ""));
-            if (current && !titleAndCompany && !current.period) {
+            const titleAndCompany = cleanLine(line.slice(0, dateMatch.index).replace(/[|–—-]+$/, ""));
+            if (current && !current.period && (current.role || current.company)) {
                 current.period = dateMatch[0];
                 continue;
             }
-            if (current && (current.role || current.company)) saveCurrent();
-            const { role, company } = splitRoleAndCompany(titleAndCompany);
+            if (current && !current.role && !current.company && !current.period) {
+                current.period = dateMatch[0];
+                continue;
+            }
+            if (current && (current.role || current.company || current.period)) saveCurrent();
+            const { role, company } = titleAndCompany
+                ? splitRoleAndCompany(titleAndCompany)
+                : { role: "", company: "" };
             current = {
                 role,
                 company,
@@ -106,6 +116,10 @@ function parseExperience(lines) {
 
         if (/^[•●▪*-]/.test(rawLine.trim()) && current) {
             current.bullets.push(line);
+        } else if (current && current.period && !current.role && !current.company) {
+            const { role, company } = splitRoleAndCompany(line);
+            current.role = role;
+            current.company = company;
         } else if (current && !current.company) {
             current.company = line;
         } else {
@@ -134,23 +148,63 @@ function parseEducation(lines) {
 function parseProjects(lines) {
     const projects = [];
     let current = null;
+    const saveCurrent = () => {
+        if (current) {
+            current.description = current.description.join(" ").trim();
+            projects.push(current);
+        }
+        current = null;
+    };
+
     for (const rawLine of lines) {
         const line = cleanLine(rawLine);
         if (!line) continue;
-        if (/^[•●▪*-]/.test(rawLine.trim()) && current) {
-            current.description = [current.description, line].filter(Boolean).join(" ");
+
+        const isBullet = /^[•●▪*-]/.test(rawLine.trim());
+        const stackMatch = line.match(/^(.+?)\s+—\s+(.+)$/);
+        const namedProject = /^.{2,100}:\s+\S/.test(line);
+        const looksLikeTitle = !isBullet && (stackMatch || namedProject);
+        const technologyContinuation = /^\s*·\s*(.+)$/.exec(rawLine);
+        if (current && technologyContinuation && !looksLikeTitle) {
+            current.technologies = distinct([
+                ...current.technologies,
+                ...technologyContinuation[1].split(/[·,;|]/).map((technology) => technology.trim()),
+            ]);
+            continue;
+        }
+        if (looksLikeTitle || !current) {
+            saveCurrent();
+            const title = stackMatch?.[1] ?? line;
+            const stack = stackMatch?.[2] ?? "";
+            const [name, description = ""] = title.split(/\s*[|:]\s*/, 2);
+            current = {
+                name: name.trim(),
+                description: description ? [description] : [],
+                technologies: stack ? distinct(stack.split(/[·,;|]/).map((technology) => technology.trim())) : [],
+            };
         } else {
-            if (current) projects.push(current);
-            const parts = line.split(/\s*[|:]\s*/, 2);
-            current = { name: parts[0], description: parts[1] ?? "" };
+            current.description.push(line);
         }
     }
-    if (current) projects.push(current);
+    saveCurrent();
     return projects;
 }
 
 function distinct(values) {
     return [...new Map(values.filter(Boolean).map((value) => [value.toLowerCase(), value])).values()];
+}
+
+function splitListItems(lines) {
+    return distinct(lines.flatMap((rawLine) => cleanLine(rawLine).split(/\s*[·•|]\s*/).map((item) => item.trim())));
+}
+
+function isAchievement(value) {
+    return /\b(award(?:ed)?|achievement|winner|finalist|top\s+\d+%?|elite\s+(?:gold|silver|bronze)|selected\s+among|advanced\s+to|placed\s+\d+)\b/i.test(value);
+}
+
+function getAchievementDetails(value) {
+    const details = value.match(/\(([^()]*)\)/)?.[1];
+    return details && isAchievement(details) ? [details.trim()] : [];
 }
 
 function parseSections(text) {
@@ -159,8 +213,12 @@ function parseSections(text) {
         experience: [],
         education: [],
         skills: [],
+        programmingLanguages: [],
         projects: [],
         certifications: [],
+        achievements: [],
+        competitions: [],
+        interests: [],
         summary: [],
     };
     let currentSection = "header";
@@ -168,11 +226,39 @@ function parseSections(text) {
     for (const rawLine of text.split(/\r?\n/)) {
         const line = rawLine.trim();
         if (!line) continue;
-        const heading = cleanLine(line).replace(/:$/, "");
+        const markdownHeading = line.replace(/^#{1,6}\s*/, "");
+        const inlineLanguageHeading = markdownHeading.match(/^languages?(?:\s*:\s*|\s+)(.+)$/i);
+        if (inlineLanguageHeading) {
+            currentSection = "programmingLanguages";
+            const languageContent = inlineLanguageHeading[1];
+            const inlineInterests = /(?:\s*\|\s*|\s+)interests?\s*:?\s*(.*)$/i.exec(languageContent);
+            const languageText = (inlineInterests
+                ? languageContent.slice(0, inlineInterests.index).replace(/\s*\|\s*$/, "")
+                : languageContent).trim();
+            if (languageText) sections.programmingLanguages.push(languageText);
+            if (inlineInterests) {
+                if (inlineInterests[1].trim()) sections.interests.push(inlineInterests[1].trim());
+                currentSection = "interests";
+            }
+            continue;
+        }
+
+        const heading = cleanLine(markdownHeading).replace(/:$/, "");
         const section = SECTION_PATTERNS.find(([, pattern]) => pattern.test(heading));
         if (section) {
             currentSection = section[0];
             continue;
+        }
+
+        if (currentSection === "programmingLanguages") {
+            const inlineInterests = rawLine.match(/\s+interests?\s*(.*)$/i);
+            if (inlineInterests) {
+                const languageText = rawLine.slice(0, inlineInterests.index).trim();
+                if (languageText) sections.programmingLanguages.push(languageText);
+                if (inlineInterests[1].trim()) sections.interests.push(inlineInterests[1].trim());
+                currentSection = "interests";
+                continue;
+            }
         }
         sections[currentSection].push(rawLine);
     }
@@ -209,8 +295,21 @@ export function analyzeResumeText(resumeText) {
     const experiences = parseExperience(sections.experience);
     const education = parseEducation(sections.education);
     const projects = parseProjects(sections.projects);
-    const skills = distinct(sections.skills.flatMap((line) => cleanLine(line).split(/[,;|•]/).map((skill) => skill.trim())));
-    const certifications = distinct(sections.certifications.map(cleanLine));
+    const skills = distinct(sections.skills.flatMap((line) =>
+        cleanLine(line)
+            .replace(/^[^:]{1,60}:\s*/, "")
+            .split(/[,;|•]/)
+            .map((skill) => skill.trim())
+    ));
+    const certificationItems = splitListItems(sections.certifications);
+    const certifications = certificationItems;
+    const achievements = distinct([
+        ...certificationItems.flatMap(getAchievementDetails),
+        ...splitListItems(sections.achievements),
+    ]);
+    const competitions = splitListItems(sections.competitions);
+    const languages = splitListItems(sections.programmingLanguages);
+    const interests = splitListItems(sections.interests);
 
     const claimedYears = [...resumeText.matchAll(/\b(\d+(?:\.\d+)?)\+?\s*(?:years?|yrs?)\s+(?:of\s+)?(?:professional\s+)?experience\b/gi)]
         .map((match) => Number(match[1]))
@@ -239,6 +338,10 @@ export function analyzeResumeText(resumeText) {
         skills,
         projects,
         certifications,
+        achievements,
+        competitions,
+        languages,
+        interests,
         yearsExperience,
         careerLevel,
         metrics: {

@@ -1,6 +1,11 @@
 import express from "express";
 import multer from "multer";
-import { analyzeResume, getLatestResume } from "../controller/resume.js";
+import {
+    analyzeResume,
+    getLatestResume,
+    getResumeAnalysisJob,
+    retryResumeAnalysisJob,
+} from "../controller/resume.js";
 import { protect, requireWorker } from "../middlewares/auth.js";
 
 const router = express.Router();
@@ -37,6 +42,8 @@ function handleResumeUpload(req, res, next) {
 }
 
 router.post("/analyze", protect, requireWorker, handleResumeUpload, analyzeResume);
+router.get("/jobs/:jobId", protect, requireWorker, getResumeAnalysisJob);
+router.post("/jobs/:jobId/retry", protect, requireWorker, retryResumeAnalysisJob);
 router.get("/latest", protect, requireWorker, getLatestResume);
 
 export default router;
