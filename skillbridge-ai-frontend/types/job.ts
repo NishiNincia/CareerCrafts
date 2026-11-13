@@ -38,6 +38,7 @@ export interface Course {
   progress?: number;
   thumbnailColor: string;
   matchReason: string;
+  skills?: string[];
 }
 
 export interface GovtScheme {

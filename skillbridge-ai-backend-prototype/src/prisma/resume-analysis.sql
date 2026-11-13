@@ -202,3 +202,96 @@ VALUES
     ('application-security', 'application security'),
     ('application-security', 'threat modeling')
 ON CONFLICT (course_id, skill) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS learning_roadmaps (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    resume_id UUID REFERENCES resumes(id) ON DELETE SET NULL,
+    target_role TEXT NOT NULL,
+    title TEXT NOT NULL,
+    overview TEXT NOT NULL DEFAULT '',
+    existing_skills TEXT[] NOT NULL DEFAULT '{}',
+    skill_gaps TEXT[] NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS learning_roadmaps_user_created_idx
+    ON learning_roadmaps (user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS learning_modules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    roadmap_id UUID NOT NULL REFERENCES learning_roadmaps(id) ON DELETE CASCADE,
+    module_order SMALLINT NOT NULL CHECK (module_order > 0),
+    title TEXT NOT NULL,
+    skill TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    UNIQUE (roadmap_id, module_order)
+);
+
+CREATE TABLE IF NOT EXISTS learning_lessons (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    module_id UUID NOT NULL REFERENCES learning_modules(id) ON DELETE CASCADE,
+    lesson_order SMALLINT NOT NULL CHECK (lesson_order > 0),
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    UNIQUE (module_id, lesson_order)
+);
+
+CREATE TABLE IF NOT EXISTS learning_exercises (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    module_id UUID NOT NULL REFERENCES learning_modules(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    instructions TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS learning_assessments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    roadmap_id UUID NOT NULL REFERENCES learning_roadmaps(id) ON DELETE CASCADE,
+    module_id UUID REFERENCES learning_modules(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    assessment_type TEXT NOT NULL CHECK (assessment_type IN ('module', 'final')),
+    questions JSONB NOT NULL,
+    pass_score SMALLINT NOT NULL DEFAULT 70 CHECK (pass_score BETWEEN 1 AND 100)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS learning_assessments_module_unique_idx
+    ON learning_assessments (module_id)
+    WHERE module_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS learning_assessments_final_unique_idx
+    ON learning_assessments (roadmap_id)
+    WHERE assessment_type = 'final';
+
+CREATE TABLE IF NOT EXISTS assessment_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    assessment_id UUID NOT NULL REFERENCES learning_assessments(id) ON DELETE CASCADE,
+    score SMALLINT NOT NULL CHECK (score BETWEEN 0 AND 100),
+    passed BOOLEAN NOT NULL,
+    answers JSONB NOT NULL DEFAULT '[]'::jsonb,
+    attempted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS assessment_attempts_user_assessment_idx
+    ON assessment_attempts (user_id, assessment_id, attempted_at DESC);
+
+CREATE TABLE IF NOT EXISTS user_learning_progress (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    roadmap_id UUID NOT NULL REFERENCES learning_roadmaps(id) ON DELETE CASCADE,
+    module_id UUID NOT NULL REFERENCES learning_modules(id) ON DELETE CASCADE,
+    completed_lessons UUID[] NOT NULL DEFAULT '{}',
+    completed_exercises UUID[] NOT NULL DEFAULT '{}',
+    mastered BOOLEAN NOT NULL DEFAULT FALSE,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, module_id)
+);
+
+CREATE TABLE IF NOT EXISTS learning_projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    roadmap_id UUID NOT NULL REFERENCES learning_roadmaps(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    requirements JSONB NOT NULL DEFAULT '[]'::jsonb,
+    status TEXT NOT NULL DEFAULT 'not_started'
+        CHECK (status IN ('not_started', 'in_progress', 'submitted', 'completed')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

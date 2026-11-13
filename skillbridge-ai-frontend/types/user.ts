@@ -3,16 +3,23 @@ import type { GeoPoint, Role } from "./common";
 export interface Worker {
   id: string;
   name: string;
-  avatarUrl?: string;
+  email: string;
   role: Role;
-  title: string;
-  location: string;
-  geo: GeoPoint;
-  resumeScore: number;
-  skills: string[];
-  rating: number;
-  totalJobsCompleted: number;
-  memberSince: string;
+  createdAt: string;
+  resume: {
+    filename: string;
+    title: string;
+    summary: string;
+    careerLevel: "Beginner" | "Intermediate" | "Advanced";
+    yearsExperience: number;
+    skills: string[];
+    metrics: {
+      atsScore: number;
+      resumeScore: number;
+      profileCompletion: number;
+      skillStrength: number;
+    };
+  } | null;
 }
 
 export interface Employer {

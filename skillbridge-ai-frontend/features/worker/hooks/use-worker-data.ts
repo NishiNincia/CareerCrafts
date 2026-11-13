@@ -15,8 +15,8 @@ export function useGigs() {
   return useQuery({ queryKey: ["worker", "gigs"], queryFn: workerService.getGigs });
 }
 
-export function useRecommendedCourses() {
-  return useQuery({ queryKey: ["worker", "courses"], queryFn: workerService.getRecommendedCourses });
+export function useCourses() {
+  return useQuery({ queryKey: ["worker", "courses"], queryFn: workerService.getCourses });
 }
 
 export function useSchemes() {

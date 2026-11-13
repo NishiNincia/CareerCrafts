@@ -12,12 +12,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { GigCard } from "@/features/worker/components/gig-card";
 import { useIncomingGig } from "@/features/worker/hooks/use-incoming-gig";
-import { useGigs, useWorkerProfile } from "@/features/worker/hooks/use-worker-data";
+import { useGigs } from "@/features/worker/hooks/use-worker-data";
 import { formatCurrency } from "@/lib/utils";
 
 export default function GigsPage() {
   const { data: gigs, isLoading } = useGigs();
-  const { data: profile, isLoading: profileLoading } = useWorkerProfile();
   const { simulate } = useIncomingGig();
   const [online, setOnline] = useState(true);
 
@@ -105,16 +104,12 @@ export default function GigsPage() {
             <Badge variant="outline">{online ? "Live now" : "Offline"}</Badge>
           </CardHeader>
           <CardContent>
-            {profileLoading ? (
+            {isLoading ? (
               <Skeleton className="h-80 w-full rounded-2xl" />
-            ) : profile ? (
+            ) : gigs ? (
               <MapView
                 height={300}
-                pins={[
-                  { id: "me", geo: profile.geo, label: "You are here", variant: "success", center: true },
-                  { id: "gig-1", geo: { lat: profile.geo.lat + 0.008, lng: profile.geo.lng + 0.006 }, label: "Nearby pickup", variant: "signal", sublabel: "2 min away" },
-                  { id: "gig-2", geo: { lat: profile.geo.lat - 0.005, lng: profile.geo.lng + 0.004 }, label: "Service hub", variant: "primary", sublabel: "Quick handoff" },
-                ]}
+                pins={gigs.map((gig) => ({ id: gig.id, geo: gig.geo, label: gig.businessName, sublabel: `${gig.distanceKm} km away`, variant: "primary" as const }))}
               />
             ) : null}
           </CardContent>

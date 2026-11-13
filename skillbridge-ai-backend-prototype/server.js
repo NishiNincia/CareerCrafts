@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import pool from './src/config/db.js';
 import resumeRoutes from './src/routes/resume.js';
 import recommendationRoutes from './src/routes/recommendation.js';
+import learningRoutes from './src/routes/learning.js';
 import { ensureResumeSchema } from './src/services/resumeSchema.js';
 import { startResumeAnalysisWorker } from './src/services/resumeAnalysisWorker.js';
 
@@ -152,25 +153,31 @@ app.use('/api/resumes', (req, res, next) => {
 
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/learning', learningRoutes);
 
 app.get('/api/v1/me', authMiddleware, async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, name, email, role FROM users WHERE id = $1', [req.user.id]);
+    const result = await pool.query('SELECT id, name, email, role, created_at FROM users WHERE id = $1', [req.user.id]);
     const user = result.rows[0];
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    return res.json({ success: true, data: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    return res.json({
+      success: true,
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.created_at,
+      },
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
-});
-
-app.get('/api/v1/worker/profile', authMiddleware, (req, res) => {
-  res.json({ success: true, data: readJson('worker.json') });
 });
 
 app.get('/api/v1/worker/jobs', authMiddleware, (req, res) => {
@@ -181,8 +188,37 @@ app.get('/api/v1/worker/gigs', authMiddleware, (req, res) => {
   res.json({ success: true, data: readJson('gigs.json') });
 });
 
-app.get('/api/v1/worker/courses', authMiddleware, (req, res) => {
-  res.json({ success: true, data: readJson('courses.json') });
+app.get('/api/v1/worker/courses', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'worker') {
+    return res.status(403).json({ success: false, message: 'Only worker accounts can view courses.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT c.id, c.title, c.provider, c.duration_hours, c.level, c.thumbnail_color, c.match_reason,
+              COALESCE(array_agg(DISTINCT cs.skill) FILTER (WHERE cs.skill IS NOT NULL), ARRAY[]::text[]) AS skills
+       FROM courses c
+       LEFT JOIN course_skills cs ON cs.course_id = c.id
+       GROUP BY c.id
+       ORDER BY c.level, c.title`
+    );
+    return res.json({
+      success: true,
+      data: result.rows.map((course) => ({
+        id: course.id,
+        title: course.title,
+        provider: course.provider,
+        durationHours: course.duration_hours,
+        level: course.level,
+        thumbnailColor: course.thumbnail_color,
+        matchReason: course.match_reason,
+        skills: course.skills,
+      })),
+    });
+  } catch (error) {
+    console.error('Loading courses failed:', error);
+    return res.status(500).json({ success: false, message: 'Could not load courses.' });
+  }
 });
 
 app.get('/api/v1/worker/schemes', authMiddleware, (req, res) => {

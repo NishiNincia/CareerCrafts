@@ -11,7 +11,7 @@ role-specific learning roadmaps independently of the course catalog.
 flowchart LR
     Browser["React + Vite frontend"]
     API["Express REST API<br/>JWT authentication"]
-    DB[("PostgreSQL<br/>users · resumes · resume details<br/>learning roadmaps · lessons · exercises · assessments · progress · projects")]
+    DB[("PostgreSQL<br/>users · resumes · resume details<br/>learning roadmaps · modules · lessons · exercises<br/>assessments · attempts · progress · projects")]
     AI["Gemini API"]
     Browser -->|"Bearer token · JSON / resume upload"| API
     API -->|"SQL reads and writes"| DB
@@ -22,11 +22,12 @@ flowchart LR
 ```
 
 The worker account and profile view read the authenticated `users` row and the
-latest saved `resumes` analysis. The Learning Hub uses that resume analysis to
-generate a target-role roadmap, then stores lessons, practice exercises,
-assessments, attempts, per-user progress, and projects in its own learning
-tables. It does not depend on `courses`, `course_skills`, or course
-recommendations; those tables remain available for future use.
+latest saved `resumes` analysis. The Learning Hub reads resume skills and gaps,
+then asks Gemini to generate lessons, practice exercises, assessments, and a
+capstone project for the selected target role. Roadmap content and per-user
+progress are stored in the learning tables. This flow does not depend on
+`courses`, `course_skills`, or course recommendations; those tables remain
+available for future use.
 
 ### Learning roadmap flow
 
@@ -43,9 +44,11 @@ flowchart TD
     I --> J{Skill Mastered?}
     J -->|No| G
     J -->|Yes| K[Next Topic]
-    K --> L[Final Assessment]
-    L --> M[Update Skill Profile]
+    K -->|More topics| G
+    K -->|All topics mastered| L[Final Assessment]
+    L -->|Pass| M[Update Skill Profile]
     M --> N[Career Readiness]
+    L -->|Retry| G
 ```
 
 Learning data is stored in `learning_roadmaps`, `learning_modules`,
@@ -166,21 +169,42 @@ Set-Location .\skillbridge-ai-frontend
 npm.cmd run build
 ```
 
-## Resume analysis endpoints
+## Resume analysis and learning endpoints
 
-Resume endpoints require authentication:
+All endpoints below require a signed-in worker's bearer token. Resume analysis
+and personalized roadmap generation also require the configured Gemini API key.
 
 - `POST /api/resumes/analyze` — upload a PDF/DOCX and optionally include a job
   description; returns a queued analysis job.
 - `GET /api/resumes/jobs/:jobId` — poll job status and retrieve its saved result.
 - `POST /api/resumes/jobs/:jobId/retry` — retry a failed analysis.
 - `GET /api/resumes/latest` — retrieve the signed-in user's latest saved result.
+
+Learning endpoints:
+
 - `GET /api/learning/roadmap` — retrieve the signed-in worker's latest roadmap
   and progress.
+- `GET /api/learning/resume-context` — load the latest resume skills without
+  reading course or recommendation tables.
 - `POST /api/learning/roadmaps` — generate a roadmap from the latest analyzed
-  resume and a supplied `targetRole`.
-- Learning endpoints also record completed lessons and exercises, assess module
-  mastery, save assessment attempts, and track capstone project status.
+  resume and a JSON body such as `{"targetRole":"Frontend Engineer"}`. An
+  analyzed resume is required; the endpoint returns `409` if none exists.
+- `POST /api/learning/roadmaps/:roadmapId/modules/:moduleId/lessons/:lessonId/complete`
+  — save lesson completion.
+- `POST /api/learning/roadmaps/:roadmapId/modules/:moduleId/exercises/:exerciseId/complete`
+  — save exercise completion after the module lessons are complete.
+- `POST /api/learning/roadmaps/:roadmapId/assessments/:assessmentId/attempts`
+  — submit JSON answers as `{"answers":[0,1,2]}`. Passing a module assessment
+  marks its skill mastered and unlocks the next module; the final assessment
+  completes the roadmap.
+- `PATCH /api/learning/roadmaps/:roadmapId/projects/:projectId` — update
+  capstone status with `{"status":"in_progress"}` or
+  `{"status":"submitted"}`.
+
+Roadmap, lesson, exercise, assessment, attempt, progress, and project records
+are scoped to the authenticated user. Module assessments require all lessons
+and exercises in that module to be completed first. The Learning Hub shows
+mastered skills in the worker profile and the current roadmap on the dashboard.
 
 Detailed API and scoring notes are in
 [`skillbridge-ai-backend-prototype/src/README.md`](./skillbridge-ai-backend-prototype/src/README.md).

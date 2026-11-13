@@ -1,9 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 
 /**
- * Single shared QueryClient. In mock mode all "network" calls resolve
- * from local JSON with an artificial delay (see services/*), so caching
- * behaves the same way it would against a real API.
+ * Single shared QueryClient for backend requests and local prototype fixtures.
  */
 export function makeQueryClient() {
   return new QueryClient({

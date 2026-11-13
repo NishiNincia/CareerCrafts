@@ -7,14 +7,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NearbyJobCard } from "@/features/worker/components/nearby-job-card";
-import { useNearbyJobs, useWorkerProfile } from "@/features/worker/hooks/use-worker-data";
+import { useNearbyJobs } from "@/features/worker/hooks/use-worker-data";
 import { EmptyState } from "@/components/shared/empty-state";
 import { SearchX } from "lucide-react";
 import type { JobType } from "@/types/job";
 
 export default function NearbyJobsPage() {
   const { data: jobs, isLoading } = useNearbyJobs();
-  const { data: profile } = useWorkerProfile();
   const [filter, setFilter] = useState<JobType | "all">("all");
 
   const filtered = jobs?.filter((j) => filter === "all" || j.type === filter) ?? [];
@@ -25,15 +24,12 @@ export default function NearbyJobsPage() {
 
       <Card className="mb-4">
         <CardContent className="p-3">
-          {isLoading || !profile ? (
+          {isLoading ? (
             <Skeleton className="h-72 w-full rounded-xl" />
           ) : (
             <MapView
               height={280}
-              pins={[
-                { id: "me", geo: profile.geo, label: "You are here", variant: "success", center: true },
-                ...(jobs ?? []).map((j) => ({ id: j.id, geo: j.geo, label: j.title, sublabel: `${j.company} · ${j.matchScore}% match`, variant: "primary" as const })),
-              ]}
+              pins={(jobs ?? []).map((j) => ({ id: j.id, geo: j.geo, label: j.title, sublabel: `${j.company} · ${j.matchScore}% match`, variant: "primary" as const }))}
             />
           )}
         </CardContent>
