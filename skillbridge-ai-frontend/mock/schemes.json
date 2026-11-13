@@ -1,5 +1,5 @@
 [
-  { "id": "s-1", "name": "PM Vishwakarma Yojana", "department": "Ministry of MSME", "benefit": "Up to ₹3,00,000 collateral-free loan", "eligibility": "Skilled artisans & tradespeople", "deadline": "2026-09-30", "category": "Financial Support" },
-  { "id": "s-2", "name": "PMKVY 4.0", "department": "Ministry of Skill Development", "benefit": "Free certified skill training + stipend", "eligibility": "Workers aged 18-45", "category": "Skilling" },
-  { "id": "s-3", "name": "e-Shram Card Benefits", "department": "Ministry of Labour", "benefit": "Accident insurance cover ₹2,00,000", "eligibility": "All unorganised sector workers", "category": "Insurance" }
+  { "id": "s-1", "name": "Prime Minister's Employment Generation Programme (PMEGP)", "department": "Ministry of MSME", "benefit": "Credit-linked margin-money subsidy for eligible new micro-enterprises", "eligibility": "New micro-enterprises; project, applicant, and location criteria apply", "category": "Enterprise finance", "officialUrl": "https://www.kviconline.gov.in/pmegpeportal/" },
+  { "id": "s-2", "name": "Credit Guarantee Scheme (CGTMSE)", "department": "Ministry of MSME", "benefit": "Credit guarantee support for eligible lending to micro and small enterprises", "eligibility": "Micro and small enterprises borrowing through participating lenders", "category": "Credit support", "officialUrl": "https://www.cgtmse.in/" },
+  { "id": "s-3", "name": "Udyam Registration", "department": "Ministry of MSME", "benefit": "Official MSME registration and access point for scheme eligibility", "eligibility": "Enterprises meeting current MSME classification criteria", "category": "Registration", "officialUrl": "https://udyamregistration.gov.in/" }
 ]

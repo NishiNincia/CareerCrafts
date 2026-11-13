@@ -9,15 +9,18 @@ role-specific learning roadmaps independently of the course catalog.
 
 ```mermaid
 flowchart LR
-    Browser["React + Vite frontend"]
+    Browser["React + Vite frontend<br/>Worker dashboard and nearby jobs map/list<br/>Employer small-business schemes"]
     API["Express REST API<br/>JWT authentication"]
-    DB[("PostgreSQL<br/>users · resumes · resume details<br/>learning roadmaps · modules · lessons · exercises<br/>assessments · attempts · progress · projects")]
+    DB[("PostgreSQL<br/>users · company size · annual turnover<br/>resumes · resume details<br/>learning roadmaps · modules · lessons · exercises<br/>assessments · attempts · progress · projects")]
     AI["Gemini API"]
+    Fixtures["JSON fixtures<br/>jobs · gigs · MSME scheme catalogue"]
     Browser -->|"Bearer token · JSON / resume upload"| API
     API -->|"SQL reads and writes"| DB
     API -->|"resume analysis"| AI
     AI -->|"structured analysis"| API
-    API -->|"persisted account, course, and resume data"| DB
+    API -->|"account, company eligibility, and learning data"| DB
+    API -->|"scheme catalogue for eligible employers"| Fixtures
+    Browser -->|"demo job and gig data"| Fixtures
     API -->|"JSON responses"| Browser
 ```
 
@@ -28,6 +31,29 @@ capstone project for the selected target role. Roadmap content and per-user
 progress are stored in the learning tables. This flow does not depend on
 `courses`, `course_skills`, or course recommendations; those tables remain
 available for future use.
+
+The worker dashboard links to one combined Nearby Jobs view. Its map pins and
+job cards use the same job-type filter; the former standalone Maps page and
+duplicate dashboard map/job cards have been removed. Government scheme
+information is available only in the employer portal. Employer registration
+collects a self-declared company size and annual turnover, stores both on the
+`users` row, and the backend gates scheme data to micro companies with turnover
+up to ₹10 crore or small companies up to ₹100 crore. This is a portal-access
+filter, not a substitute for checking each scheme's official eligibility rules.
+The current MSME scheme catalogue is sourced from the frontend
+`mock/schemes.json` fixture; the company declaration and eligibility are stored
+in PostgreSQL.
+
+### Employer small-business endpoints
+
+These endpoints require an authenticated employer account:
+
+- `GET /api/v1/employer/company-profile` — read the saved company size,
+  turnover, and portal eligibility.
+- `PUT /api/v1/employer/company-profile` — update the self-declared company
+  size and `annualTurnoverCr` value (in crore rupees).
+- `GET /api/v1/employer/schemes` — retrieve the scheme catalogue only when the
+  company meets the micro/small portal threshold; otherwise returns `403`.
 
 ### Learning roadmap flow
 
@@ -100,7 +126,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 Create a PostgreSQL database named `skillbridge` (or set `DB_NAME` to an
 existing database). The configured `DB_USER` must have permission to create and
 update the application's tables. The backend applies the resume-analysis and
-learning-roadmap schemas at startup.
+learning-roadmap schemas and adds the company-size/turnover columns at startup.
 
 Install dependencies and start the backend:
 

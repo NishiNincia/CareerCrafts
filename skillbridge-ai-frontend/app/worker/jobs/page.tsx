@@ -20,16 +20,20 @@ export default function NearbyJobsPage() {
 
   return (
     <div>
-      <PageHeader title="Nearby Jobs" description="AI-matched full-time and part-time openings near you." />
+      <PageHeader title="Nearby Jobs" description="Explore AI-matched openings on the map and in the list. Both update with your selected job type." />
 
       <Card className="mb-4">
         <CardContent className="p-3">
           {isLoading ? (
             <Skeleton className="h-72 w-full rounded-xl" />
+          ) : filtered.length === 0 ? (
+            <div className="flex h-72 items-center justify-center rounded-xl bg-secondary/40 text-sm text-muted-foreground">
+              No job locations to show for this filter.
+            </div>
           ) : (
             <MapView
               height={280}
-              pins={(jobs ?? []).map((j) => ({ id: j.id, geo: j.geo, label: j.title, sublabel: `${j.company} · ${j.matchScore}% match`, variant: "primary" as const }))}
+              pins={filtered.map((j) => ({ id: j.id, geo: j.geo, label: j.title, sublabel: `${j.company} · ${j.matchScore}% match`, variant: "primary" as const }))}
             />
           )}
         </CardContent>
@@ -44,11 +48,11 @@ export default function NearbyJobsPage() {
         </TabsList>
       </Tabs>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {filtered.length > 0 && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {isLoading
           ? Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 w-full rounded-xl" />)
           : filtered.map((job) => <NearbyJobCard key={job.id} job={job} />)}
-      </div>
+      </div>}
 
       {!isLoading && filtered.length === 0 && (
         <EmptyState icon={SearchX} title="No jobs match this filter" description="Try a different job type or check back soon — new roles are added daily." />

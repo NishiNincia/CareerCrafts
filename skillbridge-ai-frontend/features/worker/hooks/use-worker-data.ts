@@ -19,10 +19,6 @@ export function useCourses() {
   return useQuery({ queryKey: ["worker", "courses"], queryFn: workerService.getCourses });
 }
 
-export function useSchemes() {
-  return useQuery({ queryKey: ["worker", "schemes"], queryFn: workerService.getSchemes });
-}
-
 export function useApplications() {
   return useQuery({ queryKey: ["worker", "applications"], queryFn: workerService.getApplications });
 }

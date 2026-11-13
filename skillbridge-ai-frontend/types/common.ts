@@ -1,4 +1,5 @@
 export type Role = "worker" | "employer";
+export type CompanySize = "micro" | "small" | "medium" | "large";
 
 export interface GeoPoint {
   lat: number;

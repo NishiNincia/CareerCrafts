@@ -20,12 +20,11 @@ import WorkerDashboardPage from "@/app/worker/dashboard/page";
 import WorkerGigsPage from "@/app/worker/gigs/page";
 import WorkerJobsPage from "@/app/worker/jobs/page";
 import WorkerLearningPage from "@/app/worker/learning/page";
-import WorkerMapsPage from "@/app/worker/maps/page";
 import WorkerMessagesPage from "@/app/worker/messages/page";
 import WorkerNotificationsPage from "@/app/worker/notifications/page";
 import WorkerProfilePage from "@/app/worker/profile/page";
 import WorkerResumeAIPage from "@/app/worker/resume-ai/page";
-import WorkerSchemesPage from "@/app/worker/schemes/page";
+import EmployerSchemesPage from "@/app/employer/schemes/page";
 import { useAuthStore } from "@/store/auth-store";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -66,6 +65,7 @@ export default function App() {
               <Route path="post-gig" element={<EmployerPostGigPage />} />
               <Route path="post-job" element={<EmployerPostJobPage />} />
               <Route path="reviews" element={<EmployerReviewsPage />} />
+              <Route path="schemes" element={<EmployerSchemesPage />} />
               <Route path="tracking" element={<EmployerTrackingPage />} />
             </Route>
 
@@ -81,13 +81,11 @@ export default function App() {
               <Route path="dashboard" element={<WorkerDashboardPage />} />
               <Route path="gigs" element={<WorkerGigsPage />} />
               <Route path="jobs" element={<WorkerJobsPage />} />
-              <Route path="maps" element={<WorkerMapsPage />} />
               <Route path="learning" element={<WorkerLearningPage />} />
               <Route path="messages" element={<WorkerMessagesPage />} />
               <Route path="notifications" element={<WorkerNotificationsPage />} />
               <Route path="profile" element={<WorkerProfilePage />} />
               <Route path="resume-ai" element={<WorkerResumeAIPage />} />
-              <Route path="schemes" element={<WorkerSchemesPage />} />
             </Route>
 
             <Route path="/" element={<Navigate to="/login" replace />} />

@@ -1,20 +1,16 @@
 "use client";
 
-import { Briefcase, MapPin, UserRound, Zap } from "lucide-react";
+import { Briefcase, UserRound, Zap } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
-import { MapView } from "@/components/shared/map-view";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResumeScoreCard } from "@/features/worker/components/resume-score-card";
-import { NearbyJobCard } from "@/features/worker/components/nearby-job-card";
-import { SchemeCard } from "@/features/worker/components/scheme-card";
 import { ApplicationRow } from "@/features/worker/components/application-row";
 import {
   useWorkerProfile,
   useNearbyJobs,
-  useSchemes,
   useApplications,
 } from "@/features/worker/hooks/use-worker-data";
 import { useLearningRoadmap } from "@/features/worker/hooks/use-learning-roadmap";
@@ -23,9 +19,8 @@ import { NavLink } from "react-router-dom";
 
 export default function WorkerDashboardPage() {
   const { data: profile, isLoading: profileLoading } = useWorkerProfile();
-  const { data: jobs, isLoading: jobsLoading } = useNearbyJobs();
+  const { data: jobs } = useNearbyJobs();
   const { data: roadmap, isLoading: roadmapLoading } = useLearningRoadmap();
-  const { data: schemes, isLoading: schemesLoading } = useSchemes();
   const { data: applications, isLoading: applicationsLoading } = useApplications();
   const { simulate } = useIncomingGig();
 
@@ -45,7 +40,7 @@ export default function WorkerDashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <StatCard label="Best Job Match" value={bestMatch ? `${bestMatch.matchScore}%` : "—"} icon={Briefcase} accent="bridge" />
-        <StatCard label="Nearby Jobs" value={jobs ? `${jobs.length} open` : "—"} icon={MapPin} accent="signal" />
+        <StatCard label="Nearby Jobs" value={jobs ? `${jobs.length} open` : "—"} icon={Briefcase} accent="signal" />
         <StatCard label="Roadmap Topics" value={roadmap ? `${roadmap.modules.length}` : "—"} icon={Zap} accent="success" />
       </div>
 
@@ -85,39 +80,7 @@ export default function WorkerDashboardPage() {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle>Nearby Jobs Map</CardTitle>
-            <NavLink to="/worker/jobs" className="text-sm font-medium text-primary hover:underline">
-              View all
-            </NavLink>
-          </CardHeader>
-          <CardContent>
-            {jobsLoading ? (
-              <Skeleton className="h-80 w-full rounded-2xl" />
-            ) : (
-              <MapView
-                height={320}
-                pins={jobs!.map((j) => ({ id: j.id, geo: j.geo, label: j.title, sublabel: j.company, variant: "primary" as const }))}
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle>Top Matches</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {jobsLoading
-              ? Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-xl" />)
-              : jobs?.slice(0, 2).map((job) => <NearbyJobCard key={job.id} job={job} />)}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4">
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>Learning Roadmap</CardTitle>
@@ -145,19 +108,6 @@ export default function WorkerDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle>Government Schemes</CardTitle>
-            <NavLink to="/worker/schemes" className="text-sm font-medium text-primary hover:underline">
-              View all
-            </NavLink>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {schemesLoading
-              ? Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)
-              : schemes?.slice(0, 2).map((scheme) => <SchemeCard key={scheme.id} scheme={scheme} />)}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

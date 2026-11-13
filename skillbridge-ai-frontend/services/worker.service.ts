@@ -1,12 +1,11 @@
 import { ApiError, backendRequest, mockRequest } from "./api-client";
 import jobsData from "@/mock/jobs.json";
 import gigsData from "@/mock/gigs.json";
-import schemesData from "@/mock/schemes.json";
 import applicationsData from "@/mock/applications.json";
 import { resumeService } from "./resume.service";
 import { useAuthStore } from "@/store/auth-store";
 import type { Worker } from "@/types/user";
-import type { Job, Course, GovtScheme, Application } from "@/types/job";
+import type { Job, Course, Application } from "@/types/job";
 import type { Gig } from "@/types/gig";
 
 function getAccessToken() {
@@ -58,7 +57,6 @@ export const workerService = {
     }
     return response.data;
   },
-  getSchemes: () => mockRequest(schemesData as GovtScheme[]),
   getApplications: () => mockRequest(applicationsData as Application[]),
 
   /** Simulates accepting a gig offer within the countdown window. */

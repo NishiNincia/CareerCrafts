@@ -1,5 +1,5 @@
 import { backendRequest } from "./api-client";
-import type { Role } from "@/types/common";
+import type { CompanySize, Role } from "@/types/common";
 
 interface AuthData {
   token: string;
@@ -35,11 +35,17 @@ export const authService = {
     return normalizeAuthResponse(response);
   },
 
-  register: async (name: string, email: string, password: string, role: Role) => {
+  register: async (
+    name: string,
+    email: string,
+    password: string,
+    role: Role,
+    companyProfile?: { companySize: CompanySize; annualTurnoverCr: number }
+  ) => {
     const response = await backendRequest<AuthResponse>("/api/auth/register", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, email, password, role }),
+      body: JSON.stringify({ name, email, password, role, ...companyProfile }),
     });
     return normalizeAuthResponse(response);
   },

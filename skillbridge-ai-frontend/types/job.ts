@@ -49,4 +49,5 @@ export interface GovtScheme {
   eligibility: string;
   deadline?: string;
   category: string;
+  officialUrl?: string;
 }

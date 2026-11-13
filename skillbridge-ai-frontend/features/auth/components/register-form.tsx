@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import { authService } from "@/services/auth.service";
-import type { Role } from "@/types/common";
+import type { CompanySize, Role } from "@/types/common";
 
 const schema = z.object({
   name: z.string().min(2, "Enter your full name"),
@@ -26,6 +26,8 @@ export function RegisterForm() {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
   const [role, setRole] = useState<Role>("worker");
+  const [companySize, setCompanySize] = useState<CompanySize | "">("");
+  const [annualTurnoverCr, setAnnualTurnoverCr] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
@@ -35,8 +37,20 @@ export function RegisterForm() {
 
   const onSubmit = async (values: FormValues) => {
     setSubmitError(null);
+    if (role === "employer" && (!companySize || annualTurnoverCr === "" || !Number.isFinite(Number(annualTurnoverCr)) || Number(annualTurnoverCr) < 0)) {
+      setSubmitError("Select your company size and enter a valid annual turnover.");
+      return;
+    }
     try {
-      const response = await authService.register(values.name, values.email, values.password, role);
+      const response = await authService.register(
+        values.name,
+        values.email,
+        values.password,
+        role,
+        role === "employer" && companySize
+          ? { companySize, annualTurnoverCr: Number(annualTurnoverCr) }
+          : undefined
+      );
       login(response.user.role, response.user.name, response.token);
       navigate(response.user.role === "worker" ? "/worker/dashboard" : "/employer/dashboard");
     } catch (error) {
@@ -94,6 +108,40 @@ export function RegisterForm() {
           <Input id="password" type="password" placeholder="••••••••" {...register("password")} />
           {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
         </div>
+        {role === "employer" && (
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="company-size">Company size</Label>
+              <select
+                id="company-size"
+                required
+                value={companySize}
+                onChange={(event) => setCompanySize(event.target.value as CompanySize | "")}
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="" disabled>Select company size</option>
+                <option value="micro">Micro</option>
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="annual-turnover">Annual turnover (₹ crore)</Label>
+              <Input
+                id="annual-turnover"
+                type="number"
+                min="0"
+                max="1000000000"
+                step="0.01"
+                required
+                value={annualTurnoverCr}
+                onChange={(event) => setAnnualTurnoverCr(event.target.value)}
+                placeholder="e.g. 8.5"
+              />
+            </div>
+          </>
+        )}
         {submitError && <p role="alert" className="text-sm text-destructive">{submitError}</p>}
         <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}

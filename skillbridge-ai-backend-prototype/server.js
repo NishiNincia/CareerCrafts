@@ -9,6 +9,7 @@ import pool from './src/config/db.js';
 import resumeRoutes from './src/routes/resume.js';
 import recommendationRoutes from './src/routes/recommendation.js';
 import learningRoutes from './src/routes/learning.js';
+import { getCompanyEligibility } from './src/services/companyEligibility.js';
 import { ensureResumeSchema } from './src/services/resumeSchema.js';
 import { startResumeAnalysisWorker } from './src/services/resumeAnalysisWorker.js';
 
@@ -41,6 +42,11 @@ async function initializeDatabase() {
       role VARCHAR(50) NOT NULL DEFAULT 'worker',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
+  `);
+  await pool.query(`
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS company_size TEXT,
+      ADD COLUMN IF NOT EXISTS annual_turnover_cr NUMERIC(12, 2)
   `);
 }
 
@@ -103,9 +109,26 @@ async function handleLogin(req, res) {
 }
 
 async function handleRegister(req, res) {
-  const { name, email, password, role = 'worker' } = req.body || {};
+  const { name, email, password, role = 'worker', companySize, annualTurnoverCr } = req.body || {};
   if (!name || !email || !password) {
     return res.status(400).json({ success: false, message: 'Name, email, and password are required' });
+  }
+  if (!['worker', 'employer'].includes(role)) {
+    return res.status(400).json({ success: false, message: 'Choose a valid account type.' });
+  }
+  const validCompanySizes = ['micro', 'small', 'medium', 'large'];
+  const turnover = annualTurnoverCr;
+  if (role === 'employer' && (
+    !validCompanySizes.includes(companySize)
+    || typeof turnover !== 'number'
+    || !Number.isFinite(turnover)
+    || turnover < 0
+    || turnover > 1_000_000_000
+  )) {
+    return res.status(400).json({
+      success: false,
+      message: 'Employer registration requires a company size and valid annual turnover in crore rupees.',
+    });
   }
 
   try {
@@ -116,10 +139,10 @@ async function handleRegister(req, res) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      `INSERT INTO users(name, email, password, role)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO users(name, email, password, role, company_size, annual_turnover_cr)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, name, email, role`,
-      [name, email, hashedPassword, role]
+      [name, email, hashedPassword, role, role === 'employer' ? companySize : null, role === 'employer' ? turnover : null]
     );
 
     const newUser = result.rows[0];
@@ -157,7 +180,10 @@ app.use('/api/learning', learningRoutes);
 
 app.get('/api/v1/me', authMiddleware, async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, name, email, role, created_at FROM users WHERE id = $1', [req.user.id]);
+    const result = await pool.query(
+      'SELECT id, name, email, role, created_at, company_size, annual_turnover_cr FROM users WHERE id = $1',
+      [req.user.id]
+    );
     const user = result.rows[0];
 
     if (!user) {
@@ -172,11 +198,106 @@ app.get('/api/v1/me', authMiddleware, async (req, res) => {
         email: user.email,
         role: user.role,
         createdAt: user.created_at,
+        companySize: user.company_size,
+        annualTurnoverCr: user.annual_turnover_cr === null ? null : Number(user.annual_turnover_cr),
       },
     });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+function requireEmployer(req, res, next) {
+  if (req.user.role !== 'employer') {
+    return res.status(403).json({ success: false, message: 'This feature is only available to employer accounts.' });
+  }
+  return next();
+}
+
+app.get('/api/v1/employer/company-profile', authMiddleware, requireEmployer, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT company_size, annual_turnover_cr FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    const profile = result.rows[0];
+    if (!profile) return res.status(404).json({ success: false, message: 'Employer account not found.' });
+    const annualTurnoverCr = profile.annual_turnover_cr === null ? null : Number(profile.annual_turnover_cr);
+    const eligibility = getCompanyEligibility(profile.company_size, annualTurnoverCr);
+    return res.json({
+      success: true,
+      data: {
+        companySize: profile.company_size,
+        annualTurnoverCr,
+        ...eligibility,
+      },
+    });
+  } catch (error) {
+    console.error('Loading employer company profile failed:', error);
+    return res.status(500).json({ success: false, message: 'Could not load company eligibility details.' });
+  }
+});
+
+app.put('/api/v1/employer/company-profile', authMiddleware, requireEmployer, async (req, res) => {
+  const { companySize, annualTurnoverCr } = req.body || {};
+  const allowedSizes = new Set(['micro', 'small', 'medium', 'large']);
+  const turnover = annualTurnoverCr;
+  if (!allowedSizes.has(companySize) || typeof turnover !== 'number' || !Number.isFinite(turnover) || turnover < 0 || turnover > 1_000_000_000) {
+    return res.status(400).json({
+      success: false,
+      message: 'Select a company size and enter a valid annual turnover in crore rupees.',
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE users
+       SET company_size = $2, annual_turnover_cr = $3
+       WHERE id = $1 AND role = 'employer'
+       RETURNING company_size, annual_turnover_cr`,
+      [req.user.id, companySize, turnover]
+    );
+    if (!result.rows.length) return res.status(404).json({ success: false, message: 'Employer account not found.' });
+    const profile = result.rows[0];
+    const eligibility = getCompanyEligibility(profile.company_size, Number(profile.annual_turnover_cr));
+    return res.json({
+      success: true,
+      data: {
+        companySize: profile.company_size,
+        annualTurnoverCr: Number(profile.annual_turnover_cr),
+        ...eligibility,
+      },
+    });
+  } catch (error) {
+    console.error('Saving employer company profile failed:', error);
+    return res.status(500).json({ success: false, message: 'Could not save company eligibility details.' });
+  }
+});
+
+app.get('/api/v1/employer/schemes', authMiddleware, requireEmployer, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT company_size, annual_turnover_cr FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    const profile = result.rows[0];
+    if (!profile) return res.status(404).json({ success: false, message: 'Employer account not found.' });
+    const eligibility = getCompanyEligibility(
+      profile.company_size,
+      profile.annual_turnover_cr === null ? null : Number(profile.annual_turnover_cr)
+    );
+    if (!eligibility.eligible) {
+      return res.status(403).json({
+        success: false,
+        code: 'SMALL_COMPANY_REQUIRED',
+        message: 'Government schemes are available only to eligible micro and small companies.',
+      });
+    }
+    return res.json({ success: true, data: readJson('schemes.json') });
+  } catch (error) {
+    console.error('Loading small-company schemes failed:', error);
+    return res.status(500).json({ success: false, message: 'Could not load government schemes.' });
   }
 });
 
@@ -219,10 +340,6 @@ app.get('/api/v1/worker/courses', authMiddleware, async (req, res) => {
     console.error('Loading courses failed:', error);
     return res.status(500).json({ success: false, message: 'Could not load courses.' });
   }
-});
-
-app.get('/api/v1/worker/schemes', authMiddleware, (req, res) => {
-  res.json({ success: true, data: readJson('schemes.json') });
 });
 
 app.get('/api/v1/worker/applications', authMiddleware, (req, res) => {
