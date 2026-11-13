@@ -2,13 +2,63 @@
 
 A React frontend and Express backend prototype for job search, skill building,
 and AI-assisted resume analysis. Resume files are parsed by the backend, analyzed
-with Gemini, and saved in PostgreSQL.
+with Gemini, and saved in PostgreSQL. The Learning Hub generates and tracks
+role-specific learning roadmaps independently of the course catalog.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser["React + Vite frontend"]
+    API["Express REST API<br/>JWT authentication"]
+    DB[("PostgreSQL<br/>users · resumes · resume details<br/>learning roadmaps · lessons · exercises · assessments · progress · projects")]
+    AI["Gemini API"]
+    Browser -->|"Bearer token · JSON / resume upload"| API
+    API -->|"SQL reads and writes"| DB
+    API -->|"resume analysis"| AI
+    AI -->|"structured analysis"| API
+    API -->|"persisted account, course, and resume data"| DB
+    API -->|"JSON responses"| Browser
+```
+
+The worker account and profile view read the authenticated `users` row and the
+latest saved `resumes` analysis. The Learning Hub uses that resume analysis to
+generate a target-role roadmap, then stores lessons, practice exercises,
+assessments, attempts, per-user progress, and projects in its own learning
+tables. It does not depend on `courses`, `course_skills`, or course
+recommendations; those tables remain available for future use.
+
+### Learning roadmap flow
+
+```mermaid
+flowchart TD
+    A[Resume Upload] --> B[Gemini Resume Analysis]
+    B --> C[Extract Existing Skills]
+    C --> D[Identify Skill Gaps]
+    D --> E[Select Target Job Role]
+    E --> F[Generate Learning Roadmap]
+    F --> G[AI Generated Lessons]
+    G --> H[Practice Exercises]
+    H --> I[Skill Assessments]
+    I --> J{Skill Mastered?}
+    J -->|No| G
+    J -->|Yes| K[Next Topic]
+    K --> L[Final Assessment]
+    L --> M[Update Skill Profile]
+    M --> N[Career Readiness]
+```
+
+Learning data is stored in `learning_roadmaps`, `learning_modules`,
+`learning_lessons`, `learning_exercises`, `learning_assessments`,
+`assessment_attempts`, `user_learning_progress`, and `learning_projects`.
+Backend startup creates or updates these tables alongside the resume-analysis
+schema. Roadmap generation requires an analyzed resume and the Gemini API key.
 
 ## Requirements
 
 - Node.js 20 or newer and npm
 - PostgreSQL running locally or reachable from your machine
-- A Gemini API key for AI resume analysis
+- A Gemini API key for AI resume analysis and personalized learning roadmaps
 
 ## Quick start (Windows PowerShell)
 
@@ -46,8 +96,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 Create a PostgreSQL database named `skillbridge` (or set `DB_NAME` to an
 existing database). The configured `DB_USER` must have permission to create and
-update the application's tables. The backend applies its resume-analysis
-schema at startup.
+update the application's tables. The backend applies the resume-analysis and
+learning-roadmap schemas at startup.
 
 Install dependencies and start the backend:
 
@@ -125,6 +175,12 @@ Resume endpoints require authentication:
 - `GET /api/resumes/jobs/:jobId` — poll job status and retrieve its saved result.
 - `POST /api/resumes/jobs/:jobId/retry` — retry a failed analysis.
 - `GET /api/resumes/latest` — retrieve the signed-in user's latest saved result.
+- `GET /api/learning/roadmap` — retrieve the signed-in worker's latest roadmap
+  and progress.
+- `POST /api/learning/roadmaps` — generate a roadmap from the latest analyzed
+  resume and a supplied `targetRole`.
+- Learning endpoints also record completed lessons and exercises, assess module
+  mastery, save assessment attempts, and track capstone project status.
 
 Detailed API and scoring notes are in
 [`skillbridge-ai-backend-prototype/src/README.md`](./skillbridge-ai-backend-prototype/src/README.md).
