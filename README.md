@@ -1,28 +1,38 @@
 # CareerCrafts / SkillBridge AI
 
-A React frontend and Express backend prototype for job search, skill building,
-and AI-assisted resume analysis. Resume files are parsed by the backend, analyzed
-with Gemini, and saved in PostgreSQL. The Learning Hub generates and tracks
-role-specific learning roadmaps independently of the course catalog.
+CareerCrafts (SkillBridge AI) is a React and Express employment and career
+development prototype. Workers can search jobs and gigs, manage
+applications and projects, analyze resumes, and follow personalized learning
+roadmaps. Employers can manage job and gig listings and access company-eligibility
+and scheme information. Resume analysis and Learning Hub roadmap generation use
+Gemini; persistent account, job, gig, resume, and learning data is stored in
+PostgreSQL.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    Browser["React + Vite frontend<br/>Worker gig marketplace and projects<br/>Employer gig management and reviews"]
+    Browser["React + TypeScript + Vite frontend<br/>Worker jobs, gigs, projects, resume AI, learning<br/>Employer jobs, gigs, schemes"]
     API["Express REST API<br/>JWT authentication"]
-    DB[("PostgreSQL<br/>users · gigs · applications · projects · submissions · location events<br/>resumes · resume details<br/>learning roadmaps · modules · lessons · exercises<br/>assessments · attempts · progress")]
+    DB[("PostgreSQL<br/>users · jobs · job applications<br/>gigs · gig applications · projects · submissions<br/>resumes · resume details<br/>learning roadmaps · modules · lessons · exercises<br/>assessments · attempts · progress")]
     AI["Gemini API"]
-    Fixtures["JSON fixtures<br/>jobs · MSME scheme catalogue"]
+    Fixtures["JSON fixtures<br/>MSME schemes · prototype views"]
     Browser -->|"Bearer token · JSON / resume upload"| API
     API -->|"SQL reads and writes"| DB
-    API -->|"resume analysis"| AI
-    AI -->|"structured analysis"| API
-    API -->|"account, gig lifecycle, company eligibility, and learning data"| DB
-    API -->|"scheme catalogue for eligible employers"| Fixtures
-    Browser -->|"demo job data"| Fixtures
+    API -->|"resume and roadmap generation"| AI
+    AI -->|"JSON results"| API
+    API -->|"account, job/gig lifecycle, company eligibility, and learning data"| DB
+    API -->|"scheme catalogue and fixture-backed API responses"| Fixtures
+    Browser -->|"fixture-backed prototype views"| Fixtures
     API -->|"JSON responses"| Browser
 ```
+
+The experience is one product: job search and gig work share the worker and
+employer portals with resume analysis and personalized learning. Job listings,
+applications, gigs, projects, resumes, and roadmaps use the backend and
+PostgreSQL. Some secondary prototype views (including messages, notifications,
+and several employer summary panels) use JSON fixtures rather than persisted
+user data.
 
 The worker account and profile view read the authenticated `users` row and the
 latest saved `resumes` analysis. The Learning Hub reads resume skills and gaps,
@@ -77,6 +87,23 @@ flowchart TD
     N --> L
     M -->|Approve| O[Project completed]
 ```
+
+### Job listing endpoints
+
+These endpoints require a bearer token. Employer routes are restricted to the
+signed-in employer and worker routes to worker accounts.
+
+- `POST /api/v1/employer/jobs` — create a job using `title`, `description`,
+  `address`, `latitude`, `longitude`, `employmentType` (`full-time`,
+  `part-time`, or `contract`), `minSalary`, `maxSalary`, and `requiredSkills`.
+- `GET /api/v1/employer/jobs` — list the employer's open jobs.
+- `PUT /api/v1/employer/jobs/:jobId` — update an owned open job.
+- `DELETE /api/v1/employer/jobs/:jobId` — close an owned open job without
+  deleting its application history.
+- `GET /api/v1/worker/jobs?lat=<latitude>&lng=<longitude>&radiusKm=<1-100>` —
+  find open jobs by distance. Resume skill matches are included when the worker
+  has an analyzed resume.
+- `POST /api/v1/worker/jobs/:jobId/applications` — apply to an open job.
 
 ### Gig marketplace endpoints
 
@@ -167,7 +194,7 @@ quota limits, and unavailable models can still prevent generation.
 
 ## Requirements
 
-- Node.js 20 or newer and npm
+- Node.js 20.16+ or 22.3+ and npm
 - PostgreSQL running locally or reachable from your machine
 - A Gemini API key for AI resume analysis and personalized learning roadmaps
 
@@ -251,15 +278,18 @@ The backend loads `skillbridge-ai-backend-prototype\src\.env`.
 | --- | --- | --- |
 | `GEMINI_API_KEY` | Required for Gemini analysis | Gemini API credential |
 | `GEMINI_MODEL` | `gemini-3.8-flash` | Primary model |
-| `GEMINI_FALLBACK_MODEL` | `gemini-3.5-flash` | Final-attempt fallback |
-| `GEMINI_REQUEST_TIMEOUT_MS` | `60000` | Per-request timeout |
-| `GEMINI_RETRY_BUDGET_MS` | `140000` | Total request/retry budget |
+| `GEMINI_FALLBACK_MODEL` | `gemini-3.5-flash` | Fallback model for resume analysis and Learning Hub retry |
+| `GEMINI_REQUEST_TIMEOUT_MS` | `60000` | Resume-analysis request timeout |
+| `GEMINI_RETRY_BUDGET_MS` | `140000` | Resume-analysis retry budget |
 | `RESUME_ANALYSIS_JOB_TIMEOUT_MS` | `155000` minimum | Worker job timeout |
 | `RESUME_ANALYSIS_JOB_LEASE_MS` | `185000` minimum | Worker lease |
 
 Use model identifiers available to your Gemini API key. A fallback can be
 disabled by setting `GEMINI_FALLBACK_MODEL` to the same value as
-`GEMINI_MODEL`. Restart the backend after any environment changes.
+`GEMINI_MODEL` for resume analysis. Learning Hub generation has a separate
+45-second request timeout and at most one retry using the configured fallback
+(which may be the same model if both settings match). Restart the backend after
+any environment changes.
 
 ## Tests and builds
 

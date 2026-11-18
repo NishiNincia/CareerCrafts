@@ -1,11 +1,20 @@
-# Resume analysis API
+# CareerCrafts / SkillBridge AI backend
 
-The backend runs the idempotent `prisma/resume-analysis.sql` schema update at
-startup. It extends the existing PostgreSQL `resumes` table and creates
-normalized tables for experience, education, projects, skills, certifications,
-courses, saved course recommendations, and analysis jobs. Extracted resume text
-is retained in PostgreSQL for traceability and job retries; all resume records
-and job lookups are scoped to the authenticated user.
+This Node.js/Express API serves the CareerCrafts / SkillBridge AI React
+frontend. It provides worker and employer authentication, job and gig
+marketplaces, resume analysis, course recommendations, and the Learning Hub.
+PostgreSQL stores user accounts, job and gig applications, projects, resume
+analyses, learning roadmaps, and progress. Some secondary prototype views and
+the scheme catalogue are supplied from JSON fixtures.
+
+At startup the backend applies the idempotent
+`prisma/resume-analysis.sql` and `prisma/job-listings.sql` schema updates and
+creates the gig/project tables. The resume schema extends the existing
+PostgreSQL `resumes` table and creates normalized tables for experience,
+education, projects, skills, certifications, courses, saved course
+recommendations, analysis jobs, and learning roadmaps. Extracted resume text is
+retained in PostgreSQL for traceability and job retries; user-owned records are
+scoped to the authenticated account.
 
 ## Endpoints
 
@@ -36,6 +45,8 @@ All resume and recommendation endpoints require an authorization token.
   match scores use skills from the worker's latest parsed resume when present.
   The worker portal can supply these coordinates from browser geolocation or
   manual entry.
+- `POST /api/v1/worker/jobs/:jobId/applications` records a worker's application
+  to an open job.
 
 PDF and DOCX text extraction remains in the request path; Gemini analysis,
 profile scoring, course matching, and persistence run in a PostgreSQL-backed
@@ -93,12 +104,42 @@ Marketplace routes are under `/api/v1`:
 All marketplace routes require a bearer token and enforce worker/employer roles
 and record ownership.
 
+## Learning Hub
+
+Learning routes require an authenticated worker. The latest analyzed resume
+provides the current skills and skill gaps used to generate a roadmap for the
+requested target role. Gemini returns JSON; the backend validates the roadmap
+before saving it, then persists its lessons, exercises, assessments, and
+capstone project. Progress and assessment attempts are stored per user.
+
+Roadmap generation requests three modules with one lesson, one exercise, and
+three questions per module, plus a five-question final assessment. Requests
+have a 45-second timeout and one bounded retry using the configured fallback
+model. Transient network/provider failures and invalid, truncated, or
+locally rejected output may be retried. The response is still validated locally;
+an incomplete roadmap is not saved.
+
+- `GET /api/learning/resume-context` returns the worker's latest resume skills
+  and gaps.
+- `GET /api/learning/roadmap` returns the worker's latest roadmap and progress.
+- `POST /api/learning/roadmaps` generates and saves a roadmap from
+  `{"targetRole":"Frontend Engineer"}`. An analyzed resume is required.
+- `POST /api/learning/roadmaps/:roadmapId/modules/:moduleId/lessons/:lessonId/complete`
+  saves lesson completion.
+- `POST /api/learning/roadmaps/:roadmapId/modules/:moduleId/exercises/:exerciseId/complete`
+  saves exercise completion after the module lessons are complete.
+- `POST /api/learning/roadmaps/:roadmapId/assessments/:assessmentId/attempts`
+  records assessment answers. Passing a module assessment marks that module
+  mastered; passing the final assessment completes the roadmap.
+- `PATCH /api/learning/roadmaps/:roadmapId/projects/:projectId` updates
+  capstone status to `in_progress` or `submitted`.
+
 ## Development
 
 From this directory, configure `GEMINI_API_KEY`, database connection, and JWT
-settings in `src/.env`, then run `npm start` and `npm test`. Optional Gemini
-settings are `GEMINI_MODEL` (defaults to `gemini-3.8-flash`),
-`GEMINI_FALLBACK_MODEL` (defaults to the verified `gemini-3.5-flash`),
+settings in `src/.env`, then run `npm start` and `npm test`. Optional resume
+analysis settings are `GEMINI_MODEL` (defaults to `gemini-3.8-flash`),
+`GEMINI_FALLBACK_MODEL` (defaults to `gemini-3.5-flash`),
 `GEMINI_REQUEST_TIMEOUT_MS` (defaults to 60000; configured values are clamped
 to 1000-60000),
 `GEMINI_RETRY_BUDGET_MS` (defaults to 140000; automatically raised to allow
@@ -108,9 +149,10 @@ two full attempts, backoff, and processing overhead), `RESUME_ANALYSIS_JOB_TIMEO
 outlive the worker timeout). The fallback is used on the final attempt after
 transient errors or when the primary model returns 404; it can be disabled by
 setting it to the same value as `GEMINI_MODEL`. The SDK's hidden retries are
-disabled so HTTP status and provider errors remain available to application
-logging. Gemini 3 models use low thinking level; 2.5 models use a zero thinking
-budget. The generation prompt is capped at 14000 resume characters and 3000
+not explicitly configured by this application; resume-analysis retries are
+managed by the backend. Gemini 3 models use low thinking level; 2.5 models use
+a zero thinking budget for resume analysis. Resume-analysis prompts are capped
+at 14000 resume characters and 3000
 job-description characters with a 4096-token output cap. Truncated responses
 are reported as failures and are not persisted as successful analyses.
 SDK failures log the SDK error name/code, actual HTTP status, failure origin,
