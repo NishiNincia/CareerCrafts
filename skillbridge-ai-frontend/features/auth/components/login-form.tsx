@@ -37,6 +37,11 @@ export function LoginForm() {
     setSubmitError(null);
     try {
       const response = await authService.login(values.email, values.password);
+      if (response.user.role !== role) {
+        const accountType = response.user.role === "employer" ? "an employer" : "a worker";
+        setSubmitError(`This account is registered as ${accountType}. Select that account type to continue.`);
+        return;
+      }
       login(response.user.role, response.user.name, response.token);
       const returnPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
       navigate(returnPath || (response.user.role === "worker" ? "/worker/dashboard" : "/employer/dashboard"));

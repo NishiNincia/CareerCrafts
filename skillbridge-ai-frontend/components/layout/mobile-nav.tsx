@@ -11,15 +11,14 @@ interface MobileNavProps {
   navItems: NavItem[];
 }
 
-/** Bottom tab bar for small screens, Uber/Rapido-style: first 4 items + overflow handled by full nav in sheet. */
+/** Keep every portal route reachable on small screens with a horizontally scrollable tab bar. */
 export function MobileNav({ basePath, navItems }: MobileNavProps) {
   const location = useLocation();
   const pathname = location.pathname;
-  const items = navItems.slice(0, 5);
 
   return (
-    <nav className="glass-solid fixed inset-x-0 bottom-0 z-40 flex items-center justify-around px-1 py-2 lg:hidden" aria-label="Primary">
-      {items.map((item) => {
+    <nav className="glass-solid fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 overflow-x-auto overscroll-x-contain px-1 py-2 lg:hidden" aria-label="Primary">
+      {navItems.map((item) => {
         const href = `${basePath}${item.href}`;
         const active = pathname === href;
         const Icon = Icons[item.icon as keyof typeof Icons] as LucideIcon;
@@ -27,8 +26,9 @@ export function MobileNav({ basePath, navItems }: MobileNavProps) {
           <NavLink
             key={item.href}
             to={href}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "flex flex-1 flex-col items-center gap-1 rounded-lg py-1.5 text-[10px] font-medium",
+              "flex min-w-[72px] flex-none flex-col items-center gap-1 rounded-lg py-1.5 text-[10px] font-medium",
               active ? "text-primary" : "text-muted-foreground"
             )}
           >

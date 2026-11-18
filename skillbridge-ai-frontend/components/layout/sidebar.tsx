@@ -1,11 +1,12 @@
 "use client";
 
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import * as Icons from "lucide-react";
 import { ChevronsLeft, LogOut, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/ui-store";
+import { useAuthStore } from "@/store/auth-store";
 import type { NavItem } from "@/lib/constants";
 import { APP_NAME } from "@/lib/constants";
 
@@ -17,8 +18,10 @@ interface SidebarProps {
 
 export function Sidebar({ basePath, navItems, portalLabel }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const pathname = location.pathname;
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const logout = useAuthStore((state) => state.logout);
 
   return (
     <aside
@@ -75,13 +78,17 @@ export function Sidebar({ basePath, navItems, portalLabel }: SidebarProps) {
           <ChevronsLeft className={cn("h-[18px] w-[18px] transition-transform", sidebarCollapsed && "rotate-180")} />
           {!sidebarCollapsed && <span>Collapse</span>}
         </button>
-        <NavLink
-          to="/login"
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            navigate("/login", { replace: true });
+          }}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
         >
           <LogOut className="h-[18px] w-[18px]" />
           {!sidebarCollapsed && <span>Sign out</span>}
-        </NavLink>
+        </button>
       </div>
     </aside>
   );

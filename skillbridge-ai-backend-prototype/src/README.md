@@ -23,6 +23,19 @@ All resume and recommendation endpoints require an authorization token.
 - `GET /api/resumes/latest` returns the signed-in user's most recent analysis.
 - `GET /api/recommendations/courses` returns courses recommended from that
   user's latest career level and skill gaps.
+- `POST /api/v1/employer/jobs` saves an employer job and its required skills to
+  PostgreSQL. Include the address and its latitude/longitude coordinates.
+- `GET /api/v1/employer/jobs` lists the signed-in employer's open jobs.
+- `PUT /api/v1/employer/jobs/:jobId` updates an open job owned by the signed-in
+  employer, including its required skills.
+- `DELETE /api/v1/employer/jobs/:jobId` closes an open job owned by the signed-in
+  employer. Closed listings are removed from worker search while application
+  history is retained.
+- `GET /api/v1/worker/jobs?lat=<latitude>&lng=<longitude>&radiusKm=<1-100>`
+  returns open jobs within the requested radius, sorted by distance. Resume
+  match scores use skills from the worker's latest parsed resume when present.
+  The worker portal can supply these coordinates from browser geolocation or
+  manual entry.
 
 PDF and DOCX text extraction remains in the request path; Gemini analysis,
 profile scoring, course matching, and persistence run in a PostgreSQL-backed
@@ -46,6 +59,39 @@ categories. Five or more years, senior titles, mentoring, or large-system
 design classify as `Advanced`. A real experience entry, more than two years,
 or a complex independent project classify as `Intermediate`; otherwise the
 result is `Beginner`.
+
+## Gig marketplace workflow
+
+Backend startup creates the `gigs`, `gig_applications`, `projects`,
+`project_submissions`, and `project_location_events` tables. Gig listings,
+proposals, project delivery and client review are persisted in PostgreSQL and
+are scoped to the signed-in worker or owning employer. Accepting a proposal is
+transactional: the application is accepted, a project is created, the gig is
+closed to further applications, and remaining pending applications are
+rejected together.
+
+On-site gigs require an address and valid coordinates. The location is withheld
+from workers browsing open gigs and is available to the client and accepted
+worker through their project endpoints; that worker can open directions and
+record manual `travel_started` and `arrived` events. The backend
+does not collect continuous device location and requires arrival confirmation
+before an on-site delivery can be submitted. Clients can approve work or
+request changes; a worker may resubmit after changes are requested.
+
+Marketplace routes are under `/api/v1`:
+
+- Employer: `POST /employer/gigs`, `GET /employer/gigs`,
+  `GET /employer/gigs/:gigId/applications`,
+  `PATCH /employer/gig-applications/:applicationId`,
+  `GET /employer/projects`, and
+  `PATCH /employer/projects/:projectId/submissions/:submissionId`.
+- Worker: `GET /worker/gigs`, `POST /worker/gigs/:gigId/applications`,
+  `GET /worker/gig-applications`, `GET /worker/projects`,
+  `POST /worker/projects/:projectId/submissions`, and
+  `POST /worker/projects/:projectId/location-events`.
+
+All marketplace routes require a bearer token and enforce worker/employer roles
+and record ownership.
 
 ## Development
 

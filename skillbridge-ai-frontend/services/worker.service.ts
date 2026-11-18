@@ -1,12 +1,9 @@
-import { ApiError, backendRequest, mockRequest } from "./api-client";
-import jobsData from "@/mock/jobs.json";
-import gigsData from "@/mock/gigs.json";
-import applicationsData from "@/mock/applications.json";
+import { ApiError, backendRequest } from "./api-client";
 import { resumeService } from "./resume.service";
+import { jobService } from "./job.service";
 import { useAuthStore } from "@/store/auth-store";
 import type { Worker } from "@/types/user";
-import type { Job, Course, Application } from "@/types/job";
-import type { Gig } from "@/types/gig";
+import type { Course, Application } from "@/types/job";
 
 function getAccessToken() {
   const token = useAuthStore.getState().accessToken;
@@ -45,8 +42,7 @@ export const workerService = {
         : null,
     };
   },
-  getNearbyJobs: () => mockRequest(jobsData as Job[]),
-  getGigs: () => mockRequest(gigsData as Gig[]),
+  getNearbyJobs: jobService.getNearbyJobs,
   getCourses: async (): Promise<Course[]> => {
     const token = getAccessToken();
     const response = await backendRequest<{ success: boolean; data: Course[] }>("/api/v1/worker/courses", {
@@ -57,12 +53,15 @@ export const workerService = {
     }
     return response.data;
   },
-  getApplications: () => mockRequest(applicationsData as Application[]),
+  getApplications: async (): Promise<Application[]> => {
+    const token = getAccessToken();
+    const response = await backendRequest<{ success: boolean; data: Application[] }>("/api/v1/worker/applications", {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    if (!response.success || !Array.isArray(response.data)) {
+      throw new ApiError("The backend returned incomplete application data.");
+    }
+    return response.data;
+  },
 
-  /** Simulates accepting a gig offer within the countdown window. */
-  acceptGig: (gigId: string) =>
-    mockRequest({ gigId, status: "accepted" as const }, 700),
-
-  declineGig: (gigId: string) =>
-    mockRequest({ gigId, status: "declined" as const }, 300),
 };

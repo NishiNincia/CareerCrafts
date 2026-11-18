@@ -9,12 +9,10 @@ interface AuthState {
   accessToken: string | null;
   login: (role: Role, name: string, accessToken: string) => void;
   logout: () => void;
-  switchRole: (role: Role) => void;
 }
 
 /**
- * Lightweight auth store. Persists to localStorage so refreshing the
- * dashboard doesn't bounce the user back to /login in this mock build.
+ * Persist the backend session so refreshing a portal does not lose authentication.
  */
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -24,8 +22,7 @@ export const useAuthStore = create<AuthState>()(
       userName: "Arjun Mehta",
       accessToken: null,
       login: (role, name, accessToken) => set({ isAuthenticated: true, activeRole: role, userName: name, accessToken }),
-      logout: () => set({ isAuthenticated: false, accessToken: null }),
-      switchRole: (role) => set({ activeRole: role }),
+      logout: () => set({ isAuthenticated: false, activeRole: "worker", accessToken: null }),
     }),
     { name: "skillbridge-auth" }
   )

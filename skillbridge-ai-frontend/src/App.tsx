@@ -9,6 +9,7 @@ import WorkerLayout from "@/app/worker/layout";
 import LoginPage from "@/app/(auth)/login/page";
 import RegisterPage from "@/app/(auth)/register/page";
 import EmployerDashboardPage from "@/app/employer/dashboard/page";
+import EmployerGigsPage from "@/app/employer/gigs/page";
 import EmployerAnalyticsPage from "@/app/employer/analytics/page";
 import EmployerCandidatesPage from "@/app/employer/candidates/page";
 import EmployerPaymentsPage from "@/app/employer/payments/page";
@@ -23,16 +24,21 @@ import WorkerLearningPage from "@/app/worker/learning/page";
 import WorkerMessagesPage from "@/app/worker/messages/page";
 import WorkerNotificationsPage from "@/app/worker/notifications/page";
 import WorkerProfilePage from "@/app/worker/profile/page";
+import WorkerProjectsPage from "@/app/worker/projects/page";
 import WorkerResumeAIPage from "@/app/worker/resume-ai/page";
 import EmployerSchemesPage from "@/app/employer/schemes/page";
 import { useAuthStore } from "@/store/auth-store";
 
-function RequireAuth({ children }: { children: React.ReactNode }) {
+function RequireRole({ role, children }: { role: "worker" | "employer"; children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const activeRole = useAuthStore((state) => state.activeRole);
   const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+  if (activeRole !== role) {
+    return <Navigate to={`/${activeRole}/dashboard`} replace />;
   }
 
   return <>{children}</>;
@@ -52,13 +58,14 @@ export default function App() {
             <Route
               path="/employer"
               element={
-                <RequireAuth>
+                <RequireRole role="employer">
                   <EmployerLayout />
-                </RequireAuth>
+                </RequireRole>
               }
             >
               <Route index element={<Navigate to="/employer/dashboard" replace />} />
               <Route path="dashboard" element={<EmployerDashboardPage />} />
+              <Route path="gigs" element={<EmployerGigsPage />} />
               <Route path="analytics" element={<EmployerAnalyticsPage />} />
               <Route path="candidates" element={<EmployerCandidatesPage />} />
               <Route path="payments" element={<EmployerPaymentsPage />} />
@@ -72,9 +79,9 @@ export default function App() {
             <Route
               path="/worker"
               element={
-                <RequireAuth>
+                <RequireRole role="worker">
                   <WorkerLayout />
-                </RequireAuth>
+                </RequireRole>
               }
             >
               <Route index element={<Navigate to="/worker/dashboard" replace />} />
@@ -85,6 +92,7 @@ export default function App() {
               <Route path="messages" element={<WorkerMessagesPage />} />
               <Route path="notifications" element={<WorkerNotificationsPage />} />
               <Route path="profile" element={<WorkerProfilePage />} />
+              <Route path="projects" element={<WorkerProjectsPage />} />
               <Route path="resume-ai" element={<WorkerResumeAIPage />} />
             </Route>
 

@@ -9,18 +9,18 @@ role-specific learning roadmaps independently of the course catalog.
 
 ```mermaid
 flowchart LR
-    Browser["React + Vite frontend<br/>Worker dashboard and nearby jobs map/list<br/>Employer small-business schemes"]
+    Browser["React + Vite frontend<br/>Worker gig marketplace and projects<br/>Employer gig management and reviews"]
     API["Express REST API<br/>JWT authentication"]
-    DB[("PostgreSQL<br/>users · company size · annual turnover<br/>resumes · resume details<br/>learning roadmaps · modules · lessons · exercises<br/>assessments · attempts · progress · projects")]
+    DB[("PostgreSQL<br/>users · gigs · applications · projects · submissions · location events<br/>resumes · resume details<br/>learning roadmaps · modules · lessons · exercises<br/>assessments · attempts · progress")]
     AI["Gemini API"]
-    Fixtures["JSON fixtures<br/>jobs · gigs · MSME scheme catalogue"]
+    Fixtures["JSON fixtures<br/>jobs · MSME scheme catalogue"]
     Browser -->|"Bearer token · JSON / resume upload"| API
     API -->|"SQL reads and writes"| DB
     API -->|"resume analysis"| AI
     AI -->|"structured analysis"| API
-    API -->|"account, company eligibility, and learning data"| DB
+    API -->|"account, gig lifecycle, company eligibility, and learning data"| DB
     API -->|"scheme catalogue for eligible employers"| Fixtures
-    Browser -->|"demo job and gig data"| Fixtures
+    Browser -->|"demo job data"| Fixtures
     API -->|"JSON responses"| Browser
 ```
 
@@ -43,6 +43,73 @@ filter, not a substitute for checking each scheme's official eligibility rules.
 The current MSME scheme catalogue is sourced from the frontend
 `mock/schemes.json` fixture; the company declaration and eligibility are stored
 in PostgreSQL.
+
+Gigs use a persisted proposal-to-project lifecycle. Clients publish open online
+or on-site gigs; workers search and filter the open listings and apply with a
+proposal and optional portfolio link. Accepting one proposal creates a project
+and closes the gig to other applications in the same database transaction.
+Workers submit delivery notes and an optional work link; clients approve the
+submission or request changes. Precise on-site locations are shown only to the
+project client and accepted worker, with directions and manual
+travel-start/arrival confirmations.
+These confirmations do not collect or share continuous device location.
+
+Startup creates the `gigs`, `gig_applications`, `projects`,
+`project_submissions`, and `project_location_events` PostgreSQL tables if they
+do not already exist.
+
+```mermaid
+flowchart TD
+    A[Client publishes gig] --> B[Worker searches and filters]
+    B --> C[Worker submits proposal and optional portfolio]
+    C --> D{Client decision}
+    D -->|Reject| E[Application rejected]
+    D -->|Accept| F[Create active project]
+    F --> G{Work mode}
+    G -->|Online| H[Worker completes work remotely]
+    G -->|On-site| I[Worker views map and directions]
+    I --> J[Worker confirms travel started]
+    J --> K[Worker confirms arrival]
+    K --> H
+    H --> L[Worker submits delivery]
+    L --> M{Client review}
+    M -->|Request changes| N[Worker revises and resubmits]
+    N --> L
+    M -->|Approve| O[Project completed]
+```
+
+### Gig marketplace endpoints
+
+All gig endpoints require a bearer token. Worker routes are restricted to
+worker accounts and employer routes to the gig creator's employer account.
+
+- `POST /api/v1/employer/gigs` — publish a gig with `title`, `description`,
+  `requiredSkills`, `budget`, `deadline` (`YYYY-MM-DD`), and `workMode`
+  (`online` or `on_site`). On-site gigs also require `locationAddress` and
+  `geo: {"lat": 19.076, "lng": 72.8777}`.
+- `GET /api/v1/worker/gigs?q=...&skill=...` — browse open, unexpired gigs and
+  search by title, description, creator, or required skill.
+- `POST /api/v1/worker/gigs/:gigId/applications` — apply with
+  `{"proposal":"...","portfolioUrl":"https://..."}`; portfolio URL is optional.
+- `GET /api/v1/worker/gig-applications` — check the worker's submitted proposals
+  and their decisions.
+- `GET /api/v1/employer/gigs` and
+  `GET /api/v1/employer/gigs/:gigId/applications` — list the employer's gigs
+  and review proposals.
+- `PATCH /api/v1/employer/gig-applications/:applicationId` — decide with
+  `{"decision":"accepted"}` or `{"decision":"rejected"}`. Acceptance creates
+  the project; only one application can be accepted per gig.
+- `GET /api/v1/worker/projects` and `GET /api/v1/employer/projects` — list
+  projects visible to the signed-in worker or client.
+- `POST /api/v1/worker/projects/:projectId/submissions` — submit
+  `{"notes":"...","workUrl":"https://..."}`; an on-site worker must first
+  confirm arrival.
+- `PATCH /api/v1/employer/projects/:projectId/submissions/:submissionId` —
+  review with `{"decision":"approved","feedback":"..."}` or
+  `{"decision":"changes_requested","feedback":"Please update..."}`.
+- `POST /api/v1/worker/projects/:projectId/location-events` — record
+  `{"eventType":"travel_started"}` followed by `{"eventType":"arrived"}` for
+  an active on-site project.
 
 ### Employer small-business endpoints
 

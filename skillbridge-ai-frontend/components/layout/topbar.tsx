@@ -1,7 +1,7 @@
 "use client";
 
-import { NavLink } from "react-router-dom";
-import { Bell, Search } from "lucide-react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { Bell, LogOut, Search } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -15,7 +15,9 @@ interface TopbarProps {
 }
 
 export function Topbar({ basePath, title }: TopbarProps) {
+  const navigate = useNavigate();
   const userName = useAuthStore((s) => s.userName);
+  const logout = useAuthStore((s) => s.logout);
 
   return (
     <header className="glass sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border/60 px-4 lg:px-6">
@@ -35,6 +37,19 @@ export function Topbar({ basePath, title }: TopbarProps) {
         </Button>
 
         <ThemeToggle />
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          aria-label="Sign out"
+          onClick={() => {
+            logout();
+            navigate("/login", { replace: true });
+          }}
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
 
         <NavLink to={`${basePath}/profile`} aria-label="Your profile">
           <Avatar className="h-9 w-9 border border-border">

@@ -9,12 +9,14 @@ export interface Job {
   company: string;
   companyLogoUrl?: string;
   location: string;
-  geo: GeoPoint;
-  distanceKm: number;
+  geo: GeoPoint | null;
+  distanceKm: number | null;
   type: JobType;
   salaryMin: number;
   salaryMax: number;
-  matchScore: number;
+  matchScore?: number | null;
+  applicationStatus?: ApplicationStatus | null;
+  status?: "open" | "closed";
   skills: string[];
   postedAt: string;
   description: string;

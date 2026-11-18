@@ -1,5 +1,4 @@
 import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
 
 export async function extractResumeText(file) {
     const extension = file.originalname.toLowerCase().split(".").pop();
@@ -11,6 +10,12 @@ export async function extractResumeText(file) {
             throw error;
         }
 
+        const { default: canvas } = await import("@napi-rs/canvas");
+        globalThis.DOMMatrix ??= canvas.DOMMatrix;
+        globalThis.ImageData ??= canvas.ImageData;
+        globalThis.Path2D ??= canvas.Path2D;
+
+        const { PDFParse } = await import("pdf-parse");
         const parser = new PDFParse({ data: file.buffer });
         try {
             const result = await parser.getText();

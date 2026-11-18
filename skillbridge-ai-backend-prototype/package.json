@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "test": "node --test src/middlewares/auth.test.js src/services/resumeParser.test.js src/services/geminiService.test.js src/services/resumeAnalysis.test.js src/services/resumeAnalysisJobs.test.js src/services/resumeAnalysisWorker.test.js src/services/learningRoadmapGenerator.test.js src/services/companyEligibility.test.js"
+    "test": "node --test src/middlewares/auth.test.js src/services/resumeParser.test.js src/services/resumeFile.test.js src/services/geminiService.test.js src/services/resumeAnalysis.test.js src/services/resumeAnalysisJobs.test.js src/services/resumeAnalysisWorker.test.js src/services/learningRoadmapGenerator.test.js src/services/companyEligibility.test.js src/services/gigValidation.test.js src/services/jobListings.test.js"
   },
   "dependencies": {
     "@google/genai": "^1.12.0",
+    "@napi-rs/canvas": "^0.1.80",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

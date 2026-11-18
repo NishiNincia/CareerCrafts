@@ -1,146 +1,185 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { Activity, Clock3, MapPin, Sparkles, Wallet, Zap } from "lucide-react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BriefcaseBusiness, CalendarDays, MapPin, Search, Send, Wallet } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { MapView } from "@/components/shared/map-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { GigCard } from "@/features/worker/components/gig-card";
-import { useIncomingGig } from "@/features/worker/hooks/use-incoming-gig";
-import { useGigs } from "@/features/worker/hooks/use-worker-data";
+import { Textarea } from "@/components/ui/textarea";
+import { gigMarketplaceService } from "@/services/gig-marketplace.service";
 import { formatCurrency } from "@/lib/utils";
+import type { MarketGig } from "@/types/gig";
 
-export default function GigsPage() {
-  const { data: gigs, isLoading } = useGigs();
-  const { simulate } = useIncomingGig();
-  const [online, setOnline] = useState(true);
-
-  const completedValue = useMemo(() => (gigs ?? []).filter((gig) => gig.status === "completed").reduce((total, gig) => total + gig.payment, 0), [gigs]);
-  const activeMatches = gigs?.filter((gig) => gig.status !== "completed") ?? [];
+function MarketplaceGigCard({
+  gig,
+  applying,
+  onApply,
+}: {
+  gig: MarketGig;
+  applying: boolean;
+  onApply: (gigId: string, proposal: string, portfolioUrl: string) => void;
+}) {
+  const [proposal, setProposal] = useState("");
+  const [portfolioUrl, setPortfolioUrl] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const alreadyApplied = Boolean(gig.applicationId || gig.applicationStatus);
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Hyperlocal Gigs"
-        description="Stay online, accept nearby jobs fast, and keep every step of the delivery flow in one place."
-        action={
-          <Button variant="signal" onClick={simulate}>
-            <Zap className="h-4 w-4" /> Simulate incoming gig
-          </Button>
-        }
-      />
-
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="overflow-hidden rounded-3xl border border-signal-200/70 bg-gradient-to-br from-signal-500/10 via-background to-bridge-500/10 p-5"
-      >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <Badge variant={online ? "signal" : "secondary"}>{online ? "Live for gigs" : "Paused"}</Badge>
-              <Badge variant="outline">Fast dispatch</Badge>
-            </div>
-            <h3 className="mt-3 font-display text-xl font-semibold">{online ? "You are ready to accept nearby service requests." : "You are offline for new requests."}</h3>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Nearby businesses can ping you instantly. Keep your availability toggled on to stay competitive and earn faster.
-            </p>
+    <Card>
+      <CardContent className="space-y-4 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="font-display text-lg font-semibold">{gig.title}</h2>
+            <p className="text-sm text-muted-foreground">Posted by {gig.creatorName}</p>
           </div>
-          <div className="flex items-center gap-3 rounded-2xl border border-border/80 bg-background/70 px-3 py-2">
-            <Switch checked={online} onCheckedChange={setOnline} />
-            <span className="text-sm font-medium">{online ? "Online" : "Offline"}</span>
-          </div>
+          <Badge variant={gig.workMode === "on_site" ? "signal" : "secondary"}>
+            {gig.workMode === "on_site" ? "On-site" : "Online"}
+          </Badge>
         </div>
-      </motion.div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Active matches</p>
-              <div className="flex items-center gap-1 text-signal-600 dark:text-signal-300">
-                <Activity className="h-4 w-4" />
-                <span className="text-sm font-medium">{activeMatches.length}</span>
-              </div>
-            </div>
-            <p className="mt-3 font-display text-2xl font-semibold">{activeMatches.length}</p>
-            <p className="mt-1 text-sm text-muted-foreground">Open gigs waiting for your acceptance.</p>
-          </CardContent>
-        </Card>
+        <p className="whitespace-pre-line text-sm text-muted-foreground">{gig.description}</p>
+        <div className="flex flex-wrap gap-2">
+          {gig.requiredSkills.map((skill) => <Badge key={skill} variant="outline">{skill}</Badge>)}
+        </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Earnings ready</p>
-              <Wallet className="h-4 w-4 text-success" />
-            </div>
-            <p className="mt-3 font-display text-2xl font-semibold">{formatCurrency(completedValue + 1800)}</p>
-            <p className="mt-1 text-sm text-muted-foreground">Projected payout from completed and pending gigs.</p>
-          </CardContent>
-        </Card>
+        <div className="grid gap-2 text-sm sm:grid-cols-2">
+          <span className="flex items-center gap-2 font-medium"><Wallet className="h-4 w-4 text-primary" />{formatCurrency(gig.budget)} {gig.currency}</span>
+          <span className="flex items-center gap-2 text-muted-foreground"><CalendarDays className="h-4 w-4" />Due {new Date(gig.deadline).toLocaleDateString()}</span>
+          {gig.workMode === "on_site" && <span className="flex items-center gap-2 text-muted-foreground sm:col-span-2"><MapPin className="h-4 w-4" />Work location shared after acceptance</span>}
+        </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Average response</p>
-              <Clock3 className="h-4 w-4 text-bridge-600" />
-            </div>
-            <p className="mt-3 font-display text-2xl font-semibold">6 min</p>
-            <p className="mt-1 text-sm text-muted-foreground">Most gigs are accepted within a few minutes.</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle>Live route map</CardTitle>
-            <Badge variant="outline">{online ? "Live now" : "Offline"}</Badge>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-80 w-full rounded-2xl" />
-            ) : gigs ? (
-              <MapView
-                height={300}
-                pins={gigs.map((gig) => ({ id: gig.id, geo: gig.geo, label: gig.businessName, sublabel: `${gig.distanceKm} km away`, variant: "primary" as const }))}
+        {alreadyApplied ? (
+          <Badge variant={gig.applicationStatus === "rejected" ? "destructive" : "success"}>
+            {gig.applicationStatus === "accepted" ? "Application accepted" : gig.applicationStatus === "rejected" ? "Application declined" : "Proposal submitted"}
+          </Badge>
+        ) : showForm ? (
+          <form
+            className="space-y-3 border-t border-border pt-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onApply(gig.id, proposal, portfolioUrl);
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor={`proposal-${gig.id}`}>Your proposal</Label>
+              <Textarea
+                id={`proposal-${gig.id}`}
+                minLength={20}
+                maxLength={5000}
+                required
+                value={proposal}
+                onChange={(event) => setProposal(event.target.value)}
+                placeholder="Describe your relevant experience, approach, and availability."
               />
-            ) : null}
-          </CardContent>
-        </Card>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`portfolio-${gig.id}`}>Portfolio link (optional)</Label>
+              <Input
+                id={`portfolio-${gig.id}`}
+                type="url"
+                value={portfolioUrl}
+                onChange={(event) => setPortfolioUrl(event.target.value)}
+                placeholder="https://"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={applying || proposal.trim().length < 20}>
+                <Send className="h-4 w-4" /> Submit proposal
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+            </div>
+          </form>
+        ) : (
+          <Button onClick={() => setShowForm(true)}><BriefcaseBusiness className="h-4 w-4" />Apply to gig</Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Nearby gig queue</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {isLoading ? (
-              Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-24 w-full rounded-xl" />)
-            ) : (
-              gigs?.slice(0, 3).map((gig) => <GigCard key={gig.id} gig={gig} />)
-            )}
-          </CardContent>
-        </Card>
+export default function GigsPage() {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [skill, setSkill] = useState("");
+  const gigsQuery = useQuery({
+    queryKey: ["gig-marketplace", search, skill],
+    queryFn: () => gigMarketplaceService.browse(search, skill),
+  });
+  const applicationsQuery = useQuery({
+    queryKey: ["worker", "gig-applications"],
+    queryFn: gigMarketplaceService.workerApplications,
+  });
+  const application = useMutation({
+    mutationFn: ({ gigId, proposal, portfolioUrl }: { gigId: string; proposal: string; portfolioUrl: string }) =>
+      gigMarketplaceService.apply(gigId, proposal, portfolioUrl || undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gig-marketplace"] });
+      queryClient.invalidateQueries({ queryKey: ["worker", "gig-applications"] });
+    },
+  });
+
+  return (
+    <div className="space-y-5">
+      <PageHeader title="Browse gigs" description="Find project work, send a proposal, and track accepted projects through delivery." />
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Search title, description, or client" aria-label="Search gigs" />
+        </div>
+        <Input value={skill} onChange={(event) => setSkill(event.target.value)} placeholder="Filter by skill (e.g. plumbing)" aria-label="Filter by skill" />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Gig history</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {isLoading ? (
-            Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-24 w-full rounded-xl" />)
-          ) : (
-            gigs?.map((gig) => <GigCard key={gig.id} gig={gig} />)
-          )}
-        </CardContent>
-      </Card>
+      {application.isError && <p role="alert" className="text-sm text-destructive">{application.error.message}</p>}
+      {gigsQuery.isError && <p role="alert" className="text-sm text-destructive">{gigsQuery.error.message}</p>}
+      {applicationsQuery.isError && <p role="alert" className="text-sm text-destructive">{applicationsQuery.error.message}</p>}
+
+      <section className="space-y-3">
+        <h2 className="font-display text-lg font-semibold">My proposals</h2>
+        {applicationsQuery.isLoading ? (
+          <Skeleton className="h-20 w-full rounded-xl" />
+        ) : applicationsQuery.data?.length ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {applicationsQuery.data.map((item) => (
+              <Card key={item.id}>
+                <CardContent className="flex items-start justify-between gap-3 p-4">
+                  <div>
+                    <p className="font-medium">{item.title}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{item.budget ? formatCurrency(item.budget) : "Budget"} · Applied {new Date(item.submittedAt).toLocaleDateString()}</p>
+                  </div>
+                  <Badge variant={item.status === "accepted" ? "success" : item.status === "rejected" ? "destructive" : "secondary"}>{item.status}</Badge>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Your submitted proposals and their status will appear here.</p>
+        )}
+      </section>
+
+      {gigsQuery.isLoading ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-72 rounded-xl" />)}
+        </div>
+      ) : gigsQuery.data?.length ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {gigsQuery.data.map((gig) => (
+            <MarketplaceGigCard
+              key={gig.id}
+              gig={gig}
+              applying={application.isPending && application.variables?.gigId === gig.id}
+              onApply={(gigId, proposal, portfolioUrl) => application.mutate({ gigId, proposal, portfolioUrl })}
+            />
+          ))}
+        </div>
+      ) : (
+        <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">No open gigs match these filters. Try another search or check back later.</CardContent></Card>
+      )}
     </div>
   );
 }

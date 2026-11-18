@@ -63,29 +63,6 @@ ALTER TABLE resumes ADD COLUMN IF NOT EXISTS parsed_json JSONB NOT NULL DEFAULT 
 ALTER TABLE resumes ADD COLUMN IF NOT EXISTS source_text TEXT NOT NULL DEFAULT '';
 ALTER TABLE resumes ADD COLUMN IF NOT EXISTS analysis_cache_key TEXT;
 
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'resumes_career_level_check') THEN
-        ALTER TABLE resumes ADD CONSTRAINT resumes_career_level_check
-            CHECK (career_level IN ('Beginner', 'Intermediate', 'Advanced'));
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'resumes_years_experience_check') THEN
-        ALTER TABLE resumes ADD CONSTRAINT resumes_years_experience_check CHECK (years_experience >= 0);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'resumes_ats_score_check') THEN
-        ALTER TABLE resumes ADD CONSTRAINT resumes_ats_score_check CHECK (ats_score BETWEEN 0 AND 100);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'resumes_resume_score_check') THEN
-        ALTER TABLE resumes ADD CONSTRAINT resumes_resume_score_check CHECK (resume_score BETWEEN 0 AND 100);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'resumes_profile_completion_check') THEN
-        ALTER TABLE resumes ADD CONSTRAINT resumes_profile_completion_check CHECK (profile_completion BETWEEN 0 AND 100);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'resumes_skill_strength_check') THEN
-        ALTER TABLE resumes ADD CONSTRAINT resumes_skill_strength_check CHECK (skill_strength BETWEEN 0 AND 100);
-    END IF;
-END $$;
-
 CREATE INDEX IF NOT EXISTS resumes_user_created_idx ON resumes (user_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS resumes_user_analysis_cache_idx
     ON resumes (user_id, analysis_cache_key)

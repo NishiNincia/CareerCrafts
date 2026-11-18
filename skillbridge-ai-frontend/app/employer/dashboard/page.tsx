@@ -28,7 +28,12 @@ export default function EmployerDashboardPage() {
   const { data: workers, isLoading: workersLoading } = useTrackedWorkers();
   const { data: revenue, isLoading: revenueLoading } = useRevenue();
   const { data: pipeline, isLoading: pipelineLoading } = usePipeline();
-  const { data: jobs, isLoading: jobsLoading } = useActiveJobs();
+  const {
+    data: jobs,
+    isLoading: jobsLoading,
+    isError: jobsError,
+    error: jobsLoadError,
+  } = useActiveJobs();
   const { data: gigs, isLoading: gigsLoading } = useActiveGigs();
 
   const topCandidates = [...(candidates ?? [])].sort((a, b) => b.matchScore - a.matchScore).slice(0, 4);
@@ -53,7 +58,7 @@ export default function EmployerDashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Active Jobs" value={jobs ? `${jobs.length}` : "—"} icon={Briefcase} accent="bridge" />
-        <StatCard label="Active Gigs" value={gigs ? `${gigs.filter((g) => g.status === "pending").length}` : "—"} icon={Zap} accent="signal" />
+        <StatCard label="Active Gigs" value={gigs ? `${gigs.filter((g) => g.status === "open" || g.status === "in_progress").length}` : "—"} icon={Zap} accent="signal" />
         <StatCard label="Candidates in Pipeline" value={candidates ? `${candidates.length}` : "—"} icon={Users} accent="bridge" />
         <StatCard label="Revenue (6 mo)" value={`₹${Math.round(totalRevenue / 1000)}k`} icon={Wallet} trend="+12% MoM" trendUp accent="success" />
       </div>
@@ -113,7 +118,18 @@ export default function EmployerDashboardPage() {
           <CardContent>
             {jobsLoading
               ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="mb-2 h-10 w-full rounded-lg" />)
-              : jobs?.map((job) => <ActiveJobRow key={job.id} job={job} />)}
+              : jobsError
+                ? <p role="alert" className="py-3 text-sm text-destructive">
+                  {jobsLoadError instanceof Error ? jobsLoadError.message : "Could not load your job listings."}
+                </p>
+                : jobs?.length
+                  ? jobs.map((job) => <ActiveJobRow key={job.id} job={job} />)
+                  : <div className="space-y-2 py-3 text-sm text-muted-foreground">
+                    <p>You have no active job listings.</p>
+                    <NavLink to="/employer/post-job" className="inline-flex font-medium text-primary hover:underline">
+                      Post your first job
+                    </NavLink>
+                  </div>}
           </CardContent>
         </Card>
         <Card>
