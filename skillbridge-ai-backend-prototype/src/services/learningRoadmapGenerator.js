@@ -1,71 +1,60 @@
 import { GoogleGenAI } from "@google/genai";
 import { geminiAnalysisConfig } from "./geminiService.js";
 
-const questionSchema = {
-    type: "object",
-    properties: {
-        prompt: { type: "string" },
-        options: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 5 },
-        correctIndex: { type: "integer" },
-        explanation: { type: "string" },
-    },
-    required: ["prompt", "options", "correctIndex", "explanation"],
-};
+const MAX_ATTEMPTS = 2;
+const REQUEST_TIMEOUT_MS = 45_000;
 
-const roadmapSchema = {
-    type: "object",
-    properties: {
-        title: { type: "string" },
-        overview: { type: "string" },
-        skillGaps: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 8 },
-        modules: {
-            type: "array",
-            minItems: 1,
-            maxItems: 8,
-            items: {
-                type: "object",
-                properties: {
-                    title: { type: "string" },
-                    skill: { type: "string" },
-                    description: { type: "string" },
-                    lessons: {
-                        type: "array",
-                        minItems: 1,
-                        maxItems: 4,
-                        items: {
-                            type: "object",
-                            properties: { title: { type: "string" }, content: { type: "string" } },
-                            required: ["title", "content"],
-                        },
-                    },
-                    exercises: {
-                        type: "array",
-                        minItems: 1,
-                        maxItems: 3,
-                        items: {
-                            type: "object",
-                            properties: { title: { type: "string" }, instructions: { type: "string" } },
-                            required: ["title", "instructions"],
-                        },
-                    },
-                    questions: { type: "array", minItems: 3, maxItems: 6, items: questionSchema },
-                },
-                required: ["title", "skill", "description", "lessons", "exercises", "questions"],
-            },
-        },
-        finalQuestions: { type: "array", minItems: 5, maxItems: 10, items: questionSchema },
-        project: {
-            type: "object",
-            properties: {
-                title: { type: "string" },
-                description: { type: "string" },
-                requirements: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 8 },
-            },
-            required: ["title", "description", "requirements"],
-        },
-    },
-    required: ["title", "overview", "skillGaps", "modules", "finalQuestions", "project"],
-};
+class InvalidRoadmapOutputError extends Error {}
+
+function getProviderStatus(error) {
+    const status = Number(error?.status || error?.responseInternal?.status || error?.response?.status);
+    if (Number.isFinite(status) && status > 0) return status;
+    const message = String(error?.message || "");
+    if (/too many requests|rate limit/i.test(message)) return 429;
+    if (/gateway timeout/i.test(message)) return 504;
+    if (/service unavailable/i.test(message)) return 503;
+    return 0;
+}
+
+function isRetryableError(error, status) {
+    if ([429, 500, 502, 503, 504].includes(status)) return true;
+    if (status) return false;
+    const code = String(error?.code || error?.cause?.code || "");
+    return error?.name === "AbortError"
+        || error?.name === "TypeError"
+        || /ECONNRESET|ETIMEDOUT|ECONNREFUSED|EAI_AGAIN|UND_ERR_CONNECT_TIMEOUT/i.test(code)
+        || /timeout|aborted|fetch failed/i.test(String(error?.message || ""));
+}
+
+function getResponseText(response) {
+    if (typeof response?.text === "string") return response.text.trim();
+    return response?.candidates
+        ?.flatMap((candidate) => candidate?.content?.parts || [])
+        .map((part) => part?.text)
+        .filter((part) => typeof part === "string")
+        .join("\n")
+        .trim() || "";
+}
+
+function parseResponse(response) {
+    if (response?.candidates?.[0]?.finishReason === "MAX_TOKENS") {
+        throw new InvalidRoadmapOutputError("Gemini truncated the learning roadmap response.");
+    }
+    const responseText = getResponseText(response).replace(/^```(?:json)?\s*|\s*```$/gi, "").trim();
+    if (!responseText) throw new InvalidRoadmapOutputError("Gemini returned an empty learning roadmap.");
+
+    let payload;
+    try {
+        payload = JSON.parse(responseText);
+    } catch {
+        throw new InvalidRoadmapOutputError("Gemini returned invalid JSON for the learning roadmap.");
+    }
+    try {
+        return validateRoadmapContent(payload);
+    } catch (error) {
+        throw new InvalidRoadmapOutputError(error.message, { cause: error });
+    }
+}
 
 function readText(value, field, maxLength = 4000) {
     if (typeof value !== "string" || !value.trim() || value.length > maxLength) {
@@ -148,7 +137,10 @@ export function validateRoadmapContent(payload) {
     };
 }
 
-export function createLearningRoadmapGenerator({ generateContent } = {}) {
+export function createLearningRoadmapGenerator({
+    generateContent,
+    sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+} = {}) {
     const generate = generateContent ?? ((request) => {
         const apiKey = process.env.GEMINI_API_KEY?.trim();
         if (!apiKey) {
@@ -162,37 +154,49 @@ export function createLearningRoadmapGenerator({ generateContent } = {}) {
 
     return async function generateLearningRoadmap({ targetRole, existingSkills, missingSkills }) {
         const prompt = `Create a practical, role-specific learning roadmap for "${targetRole}".
-Use the learner's current skills and resume skill gaps to choose the next topics. Do not rely on or refer to a course catalog. Generate original, concise lesson text and actionable practice exercises. Each module should have 1-4 lessons, 1-3 exercises, and 3-6 multiple-choice assessment questions. Add a final assessment with 5-10 questions and one portfolio project. Every question must have one unambiguous correct option and a short explanation. Do not assume the learner already knows a listed skill.
+Use the learner's current skills and resume skill gaps to choose the next topics. Do not rely on or refer to a course catalog. Generate original, concise lesson text and actionable practice exercises. Create 3 modules. Each module must have 1 lesson, 1 exercise, and 3 multiple-choice assessment questions. Add a final assessment with 5 questions and one portfolio project. Every question must have one unambiguous correct option and a short explanation. Do not assume the learner already knows a listed skill.
+
+Return only a JSON object with title, overview, skillGaps (string array), modules (array of objects with title, skill, description, lessons, exercises, and questions), finalQuestions, and project (object with title, description, and requirements string array). Each lesson must have title and content. Each exercise must have title and instructions. Each question must have prompt, options (string array), correctIndex (zero-based integer), and explanation. Do not include Markdown or extra fields.
 
 Current skills: ${JSON.stringify(existingSkills)}
 Resume skill gaps: ${JSON.stringify(missingSkills)}`;
-        const response = await generate({
-            model: geminiAnalysisConfig.model,
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            config: {
-                responseMimeType: "application/json",
-                responseJsonSchema: roadmapSchema,
-                maxOutputTokens: 10_000,
-                temperature: 0.3,
-                httpOptions: { timeout: 60_000 },
-            },
-        });
-        const responseText = typeof response?.text === "string"
-            ? response.text.trim()
-            : response?.candidates?.flatMap((candidate) => candidate?.content?.parts || [])
-                .map((part) => part?.text)
-                .filter((part) => typeof part === "string")
-                .join("\n")
-                .trim();
-        if (!responseText) throw new Error("Gemini returned an empty learning roadmap.");
 
-        let payload;
-        try {
-            payload = JSON.parse(responseText);
-        } catch {
-            throw new Error("Gemini returned invalid JSON for the learning roadmap.");
+        let lastError;
+        let lastStatus = 0;
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+            const model = attempt === 1 ? geminiAnalysisConfig.model : geminiAnalysisConfig.fallbackModel;
+            try {
+                const response = await generate({
+                    model,
+                    contents: [{ role: "user", parts: [{ text: prompt }] }],
+                    config: {
+                        responseMimeType: "application/json",
+                        maxOutputTokens: 6_000,
+                        temperature: 0.2,
+                        ...(/^gemini-3(?:\.|-)/i.test(model) ? { thinkingConfig: { thinkingLevel: "low" } } : {}),
+                        httpOptions: { timeout: REQUEST_TIMEOUT_MS },
+                    },
+                });
+                return parseResponse(response);
+            } catch (error) {
+                lastError = error;
+                const status = getProviderStatus(error);
+                lastStatus = status;
+                const canRetry = attempt < MAX_ATTEMPTS
+                    && (error instanceof InvalidRoadmapOutputError || isRetryableError(error, status));
+                if (!canRetry) break;
+                console.warn(
+                    `[Learning] Roadmap generation failed model=${model} attempt=${attempt}/${MAX_ATTEMPTS} status=${status || "n/a"} code=${error?.code || error?.cause?.code || "n/a"}; retrying`
+                );
+                await sleep(500);
+            }
         }
-        return validateRoadmapContent(payload);
+
+        const error = new Error("Could not generate a valid learning roadmap. Please retry.");
+        error.status = lastStatus === 429 ? 429 : 502;
+        error.code = lastStatus === 429 ? "GEMINI_QUOTA_LIMIT" : "LEARNING_ROADMAP_GENERATION_FAILED";
+        error.cause = lastError;
+        throw error;
     };
 }
 

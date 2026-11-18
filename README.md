@@ -150,6 +150,21 @@ Learning data is stored in `learning_roadmaps`, `learning_modules`,
 Backend startup creates or updates these tables alongside the resume-analysis
 schema. Roadmap generation requires an analyzed resume and the Gemini API key.
 
+### Learning Hub implementation progress
+
+Roadmap generation uses Gemini JSON output mode without the previously rejected
+deep constrained response schema. The prompt requests a bounded roadmap of
+three modules, each with one lesson, one exercise, and three questions, plus a
+five-question final assessment. The backend validates the complete response
+before saving any roadmap data.
+
+Generation has a 45-second per-attempt timeout and one bounded retry. The
+second attempt uses `GEMINI_FALLBACK_MODEL` and is triggered by transient
+provider/network failures, truncated or malformed JSON, or invalid roadmap
+content. Each request is capped at 6,000 output tokens. Exhausted retries
+return an error rather than saving an incomplete roadmap. Gemini outages,
+quota limits, and unavailable models can still prevent generation.
+
 ## Requirements
 
 - Node.js 20 or newer and npm
