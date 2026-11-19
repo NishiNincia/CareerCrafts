@@ -144,7 +144,7 @@ PostgreSQL URL; it takes precedence over the `DB_*` settings and enables TLS
 with certificate verification. Keep the production URL out of the local `.env`.
 
 Optional resume analysis settings are `GEMINI_MODEL` (defaults to `gemini-3.8-flash`),
-`GEMINI_FALLBACK_MODEL` (defaults to `gemini-3.5-flash`),
+`GEMINI_FALLBACK_MODEL` (defaults to `gemini-3.5-flash-lite`),
 `GEMINI_REQUEST_TIMEOUT_MS` (defaults to 60000; configured values are clamped
 to 1000-60000),
 `GEMINI_RETRY_BUDGET_MS` (defaults to 140000; automatically raised to allow

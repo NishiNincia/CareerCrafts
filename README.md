@@ -220,7 +220,7 @@ DB_USER=postgres
 DB_PASSWORD=replace-with-your-postgres-password
 GEMINI_API_KEY=replace-with-your-gemini-api-key
 GEMINI_MODEL=gemini-3.8-flash
-GEMINI_FALLBACK_MODEL=gemini-3.5-flash
+GEMINI_FALLBACK_MODEL=gemini-3.5-flash-lite
 '@ | Set-Content -Encoding ascii .\src\.env
 ```
 
@@ -285,7 +285,7 @@ The backend loads `skillbridge-ai-backend-prototype\src\.env`.
 | --- | --- | --- |
 | `GEMINI_API_KEY` | Required for Gemini analysis | Gemini API credential |
 | `GEMINI_MODEL` | `gemini-3.8-flash` | Primary model |
-| `GEMINI_FALLBACK_MODEL` | `gemini-3.5-flash` | Fallback model for resume analysis and Learning Hub retry |
+| `GEMINI_FALLBACK_MODEL` | `gemini-3.5-flash-lite` | Low-latency fallback model for resume analysis and Learning Hub retry |
 | `GEMINI_REQUEST_TIMEOUT_MS` | `60000` | Resume-analysis request timeout |
 | `GEMINI_RETRY_BUDGET_MS` | `140000` | Resume-analysis retry budget |
 | `RESUME_ANALYSIS_JOB_TIMEOUT_MS` | `155000` minimum | Worker job timeout |

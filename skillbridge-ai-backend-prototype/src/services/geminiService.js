@@ -8,7 +8,7 @@ const ENV_PATH = path.resolve(__dirname, "..", ".env");
 dotenv.config({ path: ENV_PATH });
 
 const DEFAULT_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
-const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL?.trim() || "gemini-3.5-flash";
+const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL?.trim() || "gemini-3.5-flash-lite";
 const MAX_ATTEMPTS = 2;
 const MAX_BACKOFF_MS = 2_000;
 const RETRY_PROCESSING_OVERHEAD_MS = 15_000;
