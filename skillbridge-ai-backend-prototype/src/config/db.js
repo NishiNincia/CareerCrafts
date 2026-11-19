@@ -18,12 +18,18 @@ function normalizeEnvValue(value) {
     return value.trim().replace(/^['"]|['"]$/g, "");
 }
 
-const pool = new Pool({
-    host: normalizeEnvValue(process.env.DB_HOST),
-    port: Number(process.env.DB_PORT || 5432),
-    database: normalizeEnvValue(process.env.DB_NAME),
-    user: normalizeEnvValue(process.env.DB_USER),
-    password: normalizeEnvValue(process.env.DB_PASSWORD),
-});
+const connectionString = normalizeEnvValue(process.env.DATABASE_URL);
+const pool = connectionString
+    ? new Pool({
+        connectionString,
+        ssl: { rejectUnauthorized: true },
+    })
+    : new Pool({
+        host: normalizeEnvValue(process.env.DB_HOST),
+        port: Number(process.env.DB_PORT || 5432),
+        database: normalizeEnvValue(process.env.DB_NAME),
+        user: normalizeEnvValue(process.env.DB_USER),
+        password: normalizeEnvValue(process.env.DB_PASSWORD),
+    });
 
 export default pool;

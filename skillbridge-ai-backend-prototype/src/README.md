@@ -137,8 +137,13 @@ an incomplete roadmap is not saved.
 ## Development
 
 From this directory, configure `GEMINI_API_KEY`, database connection, and JWT
-settings in `src/.env`, then run `npm start` and `npm test`. Optional resume
-analysis settings are `GEMINI_MODEL` (defaults to `gemini-3.8-flash`),
+settings in `src/.env`, then run `npm start` and `npm test`. Local development
+uses `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD`. In
+production, set `DATABASE_URL` in the hosting provider's environment to the
+PostgreSQL URL; it takes precedence over the `DB_*` settings and enables TLS
+with certificate verification. Keep the production URL out of the local `.env`.
+
+Optional resume analysis settings are `GEMINI_MODEL` (defaults to `gemini-3.8-flash`),
 `GEMINI_FALLBACK_MODEL` (defaults to `gemini-3.5-flash`),
 `GEMINI_REQUEST_TIMEOUT_MS` (defaults to 60000; configured values are clamped
 to 1000-60000),

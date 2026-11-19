@@ -236,6 +236,13 @@ Create a PostgreSQL database named `skillbridge` (or set `DB_NAME` to an
 existing database). The configured `DB_USER` must have permission to create and
 update the application's tables. The backend applies the resume-analysis and
 learning-roadmap schemas and adds the company-size/turnover columns at startup.
+For local development, keep these `DB_*` values pointed at your local
+PostgreSQL database and leave `DATABASE_URL` unset.
+
+For production, set `DATABASE_URL` in the hosting provider's environment
+settings to the Neon connection string; do not put the production connection
+string in the local `.env`. When `DATABASE_URL` is set, it takes precedence over
+the `DB_*` values and the backend uses TLS with certificate verification.
 
 Install dependencies and start the backend:
 
@@ -283,6 +290,7 @@ The backend loads `skillbridge-ai-backend-prototype\src\.env`.
 | `GEMINI_RETRY_BUDGET_MS` | `140000` | Resume-analysis retry budget |
 | `RESUME_ANALYSIS_JOB_TIMEOUT_MS` | `155000` minimum | Worker job timeout |
 | `RESUME_ANALYSIS_JOB_LEASE_MS` | `185000` minimum | Worker lease |
+| `DATABASE_URL` | Unset locally | Optional PostgreSQL connection URL; when set, overrides `DB_*` and enables verified TLS |
 
 Use model identifiers available to your Gemini API key. A fallback can be
 disabled by setting `GEMINI_FALLBACK_MODEL` to the same value as
