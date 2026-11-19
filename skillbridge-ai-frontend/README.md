@@ -23,8 +23,8 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-By default, the frontend sends API requests to `http://localhost:4000`. To use
-another backend URL, create `.env.local` in this directory:
+By default, local development sends API requests to `http://localhost:4000`.
+To use another local backend URL, create `.env.local` in this directory:
 
 ```dotenv
 VITE_BACKEND_API_URL=http://localhost:4000
@@ -32,6 +32,10 @@ VITE_BACKEND_API_URL=http://localhost:4000
 
 Restart Vite after changing the environment file. Do not put backend secrets or
 the Gemini API key in frontend environment variables.
+
+Production builds use the URL in `.env.production`. Vercel project environment
+variables can override this value; set `VITE_BACKEND_API_URL` there if you
+manage production configuration in Vercel.
 
 ## Available routes
 
