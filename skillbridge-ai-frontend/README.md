@@ -12,6 +12,10 @@ progress, and company profile/scheme access. Some secondary prototype views,
 such as worker messages and notifications and several employer summary panels,
 use local JSON fixtures rather than persisted account data.
 
+## Deployed page
+
+- [CareerCrafts login](https://career-crafts-bice.vercel.app/login)
+
 ## Run locally
 
 Use the repository root [README](../README.md) to configure and start the

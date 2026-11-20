@@ -8,6 +8,10 @@ and scheme information. Resume analysis and Learning Hub roadmap generation use
 Gemini; persistent account, job, gig, resume, and learning data is stored in
 PostgreSQL.
 
+## Deployed page
+
+- [CareerCrafts login](https://career-crafts-bice.vercel.app/login)
+
 ## Architecture
 
 ```mermaid
