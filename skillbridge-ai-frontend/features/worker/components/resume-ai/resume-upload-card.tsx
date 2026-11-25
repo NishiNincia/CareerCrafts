@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 interface ResumeUploadCardProps {
-  onFileSelect?: (file: File, jobDescription: string) => Promise<unknown> | unknown;
+  onFileSelect?: (file: File, jobDescription: string, jobId: string) => Promise<unknown> | unknown;
   onRetry?: () => Promise<unknown> | unknown;
   retryAvailable?: boolean;
 }
@@ -25,6 +25,7 @@ export function ResumeUploadCard({ onFileSelect, onRetry, retryAvailable = false
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [jobDescription, setJobDescription] = useState("");
+  const [jobId, setJobId] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const validateFile = useCallback((candidate: File) => {
@@ -63,7 +64,7 @@ export function ResumeUploadCard({ onFileSelect, onRetry, retryAvailable = false
     setIsAnalyzing(true);
     setProgress(40);
     try {
-      await onFileSelect(file, jobDescription.trim());
+      await onFileSelect(file, jobDescription.trim(), jobId.trim());
       setProgress(100);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Resume analysis failed.");
@@ -71,7 +72,7 @@ export function ResumeUploadCard({ onFileSelect, onRetry, retryAvailable = false
     } finally {
       setIsAnalyzing(false);
     }
-  }, [file, jobDescription, onFileSelect]);
+  }, [file, jobDescription, jobId, onFileSelect]);
 
   const retryAnalysis = useCallback(async () => {
     if (!onRetry) return;
@@ -95,14 +96,25 @@ export function ResumeUploadCard({ onFileSelect, onRetry, retryAvailable = false
     <Card className="overflow-hidden border-dashed border-primary/30 bg-gradient-to-br from-background to-secondary/40">
       <CardContent className="p-6">
         <div className="mb-5 space-y-2 text-left">
+          <label htmlFor="resume-job-id" className="text-sm font-medium">
+            Existing job ID <span className="font-normal text-muted-foreground">(optional)</span>
+          </label>
+          <input
+            id="resume-job-id"
+            value={jobId}
+            onChange={(event) => setJobId(event.target.value)}
+            placeholder="Paste a job listing ID"
+            disabled={isAnalyzing}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          />
           <label htmlFor="resume-job-description" className="text-sm font-medium">
-            Job description <span className="font-normal text-muted-foreground">(optional)</span>
+            Job description or target role <span className="font-normal text-muted-foreground">(optional)</span>
           </label>
           <Textarea
             id="resume-job-description"
             value={jobDescription}
             onChange={(event) => setJobDescription(event.target.value)}
-            placeholder="Paste the job description here to compare your resume against its requirements."
+            placeholder="Paste a full job description or enter a role title, such as Data Analyst Intern. Leave blank for resume-only analysis."
             maxLength={MAX_JOB_DESCRIPTION_LENGTH}
             disabled={isAnalyzing}
             className="min-h-36 resize-y"

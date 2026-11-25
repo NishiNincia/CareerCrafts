@@ -5,6 +5,7 @@ import {
     getLatestResume,
     getResumeAnalysisJob,
     retryResumeAnalysisJob,
+    getResumeHistory,
 } from "../controller/resume.js";
 import { protect, requireWorker } from "../middlewares/auth.js";
 
@@ -45,5 +46,6 @@ router.post("/analyze", protect, requireWorker, handleResumeUpload, analyzeResum
 router.get("/jobs/:jobId", protect, requireWorker, getResumeAnalysisJob);
 router.post("/jobs/:jobId/retry", protect, requireWorker, retryResumeAnalysisJob);
 router.get("/latest", protect, requireWorker, getLatestResume);
+router.get("/history", protect, requireWorker, getResumeHistory);
 
 export default router;

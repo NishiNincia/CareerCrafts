@@ -9,8 +9,8 @@ includes job and gig management and company scheme information.
 The frontend uses the Express backend for authentication, job listings and
 applications, gigs and projects, resume analysis, learning roadmaps and
 progress, and company profile/scheme access. Some secondary prototype views,
-such as worker messages and notifications and several employer summary panels,
-use local JSON fixtures rather than persisted account data.
+including worker messages and notifications, use the backend. Several employer
+summary panels still use local JSON fixtures rather than persisted account data.
 
 ## Deployed page
 

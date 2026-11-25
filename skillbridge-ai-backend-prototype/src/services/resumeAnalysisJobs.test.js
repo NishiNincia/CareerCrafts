@@ -29,6 +29,18 @@ function fakePool() {
                 jobs.push(job);
                 return { rows: [job] };
             }
+            if (sql.includes("UPDATE resume_analysis_jobs") && sql.includes("status = 'failed'")) {
+                const job = jobs.find((candidate) =>
+                    candidate.user_id === values[0] && candidate.cache_key === values[1] && candidate.status === "failed"
+                );
+                if (!job) return { rows: [] };
+                job.status = "queued";
+                job.stage = "queued";
+                job.error_code = null;
+                job.error_message = null;
+                job.updated_at = new Date();
+                return { rows: [job] };
+            }
             if (sql.includes("WHERE user_id = $1 AND cache_key = $2")) {
                 return { rows: jobs.filter((job) => job.user_id === values[0] && job.cache_key === values[1]) };
             }
@@ -55,6 +67,31 @@ test("duplicate analysis submissions return the same job without storing duplica
     const duplicate = await enqueueResumeAnalysisJob(pool, { ...submission, id: "job-second" });
 
     assert.equal(first.id, duplicate.id);
+    assert.equal(pool.jobs.length, 1);
+});
+
+test("duplicate submission requeues an existing failed job instead of returning it failed", async () => {
+    const pool = fakePool();
+    const submission = {
+        id: "job-first",
+        userId: "user-1",
+        cacheKey: "failed-input",
+        filename: "resume.pdf",
+        sourceText: "resume contents",
+        jobDescription: "",
+    };
+    const first = await enqueueResumeAnalysisJob(pool, submission);
+    pool.jobs[0].status = "failed";
+    pool.jobs[0].stage = "failed";
+    pool.jobs[0].error_code = "GEMINI_API_ERROR";
+    pool.jobs[0].error_message = "Provider unavailable";
+
+    const retried = await enqueueResumeAnalysisJob(pool, { ...submission, id: "job-second" });
+
+    assert.equal(retried.id, first.id);
+    assert.equal(retried.status, "queued");
+    assert.equal(retried.stage, "queued");
+    assert.equal(retried.error_code, null);
     assert.equal(pool.jobs.length, 1);
 });
 

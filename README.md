@@ -33,13 +33,13 @@ flowchart LR
 
 The experience is one product: job search and gig work share the worker and
 employer portals with resume analysis and personalized learning. Job listings,
-applications, gigs, projects, resumes, and roadmaps use the backend and
-PostgreSQL. Some secondary prototype views (including messages, notifications,
-and several employer summary panels) use JSON fixtures rather than persisted
-user data.
+applications, gigs, projects, resumes, roadmaps, messages, and notifications
+use the backend and PostgreSQL. Several employer summary panels still use JSON
+fixtures rather than persisted user data.
 
 The worker account and profile view read the authenticated `users` row and the
-latest saved `resumes` analysis. The Learning Hub reads resume skills and gaps,
+latest saved `resumes` analysis. Messaging and notifications are stored per
+account in PostgreSQL. The Learning Hub reads resume skills and gaps,
 then asks Gemini to generate lessons, practice exercises, assessments, and a
 capstone project for the selected target role. Roadmap content and per-user
 progress are stored in the learning tables. This flow does not depend on

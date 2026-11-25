@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CheckCheck, Paperclip, Smile } from "lucide-react";
+import { Check, CheckCheck, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MessageBubbleProps {
@@ -30,7 +30,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         <p>{message.text}</p>
         <div className="mt-2 flex items-center justify-end gap-1 text-[10px] opacity-70">
           <span>{message.time}</span>
-          {message.sender === "me" ? <CheckCheck className="h-3 w-3" /> : null}
+          {message.sender === "me" ? message.status === "read" ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" /> : null}
         </div>
       </div>
     </motion.div>

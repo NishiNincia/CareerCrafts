@@ -10,12 +10,10 @@ import { Button } from "@/components/ui/button";
 import { CandidateRankRow } from "@/features/employer/components/candidate-rank-row";
 import { HiringPipeline } from "@/features/employer/components/hiring-pipeline";
 import { RevenueChart } from "@/features/employer/components/revenue-chart";
-import { WorkerTrackingMap } from "@/features/employer/components/worker-tracking-map";
 import { ActiveJobRow, ActiveGigRow } from "@/features/employer/components/active-listing-row";
 import {
   useEmployerProfile,
   useCandidates,
-  useTrackedWorkers,
   useRevenue,
   usePipeline,
   useActiveJobs,
@@ -25,7 +23,6 @@ import {
 export default function EmployerDashboardPage() {
   const { data: profile } = useEmployerProfile();
   const { data: candidates, isLoading: candidatesLoading } = useCandidates();
-  const { data: workers, isLoading: workersLoading } = useTrackedWorkers();
   const { data: revenue, isLoading: revenueLoading } = useRevenue();
   const { data: pipeline, isLoading: pipelineLoading } = usePipeline();
   const {
@@ -78,23 +75,7 @@ export default function EmployerDashboardPage() {
         </Card>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle>Live Worker Tracking</CardTitle>
-            <NavLink to="/employer/tracking" className="text-sm font-medium text-primary hover:underline">
-              Full map
-            </NavLink>
-          </CardHeader>
-          <CardContent>
-            {workersLoading || !profile ? (
-              <Skeleton className="h-80 w-full rounded-2xl" />
-            ) : (
-              <WorkerTrackingMap workers={workers!} officeGeo={profile.geo} />
-            )}
-          </CardContent>
-        </Card>
-
+      <div className="mt-4 grid grid-cols-1 gap-4">
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>Top Candidate Rankings</CardTitle>

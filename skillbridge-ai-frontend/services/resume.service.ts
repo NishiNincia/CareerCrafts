@@ -27,10 +27,63 @@ export interface ResumeAnalysis {
     resumeScore: number;
     profileCompletion: number;
     skillStrength: number;
+    analysisMode?: "FULL_JOB_DESCRIPTION" | "ROLE_ONLY" | "NO_JOB_CONTEXT";
     jobDescriptionProvided?: boolean;
     missingKeywords: string[];
     missingSkills: string[];
+    structureScore?: number | null;
+    compatibilityScore?: number | null;
+    employerCompatibilityScore?: number | null;
+    estimatedRoleCompatibilityScore?: number | null;
+    generalImprovementSuggestions?: string[];
+    normalizedResumeSkills?: Array<{ skillName: string; skillId: string; sections: string[] }>;
+    resumeStructureAssessment?: Record<string, unknown> | null;
+    jobRequirements?: Array<{
+      skillName: string;
+      skillId?: string;
+      category: string;
+      importance: "Critical" | "High" | "Medium" | "Low";
+      requirementType?: string;
+      description?: string;
+      relevanceReason?: string;
+      sourceEvidence?: string;
+      expectation?: "essential" | "preferred";
+      matchStatus: "MATCHED" | "PARTIALLY_MATCHED" | "MISSING" | "UNVERIFIABLE" | "matched" | "partial" | "missing" | "unverifiable";
+      supportingEvidence: string;
+      explanation: string;
+      identifiedGap: string;
+      suggestedImprovement: string;
+    }>;
+    roleCompetencyProfile?: {
+      roleTitle: string;
+      expectedExperienceLevel: string;
+      technicalSkills: string[];
+      coreCompetencies: string[];
+      toolsAndFrameworks: string[];
+      educationalExpectations: string[];
+      typicalResponsibilities: string[];
+      competencies: Array<{
+        skillName: string;
+        skillId: string;
+        category: string;
+        importance: "Critical" | "High" | "Medium" | "Low";
+        description: string;
+        relevanceReason: string;
+        expectation: "essential" | "preferred";
+      }>;
+    } | null;
+    keywordAnalysis?: {
+      present: string[];
+      missingImportant: string[];
+      presentWithoutEvidence: string[];
+      shouldHighlight: string[];
+      requireAcquisition: string[];
+    };
+    experienceRelevance?: unknown[];
+    projectRelevance?: unknown[];
+    improvementRecommendations?: Record<string, string[]>;
   };
+  job?: { id: string | null; title: string; company: string; description: string };
   recommendations: Array<Course & { matchingSkills: string[] }>;
 }
 
@@ -69,11 +122,14 @@ export const resumeService = {
     }
   },
 
-  analyze: async (file: File, token: string, jobDescription = "") => {
+  analyze: async (file: File, token: string, jobDescription = "", jobId = "") => {
     const formData = new FormData();
     formData.append("resume", file);
     if (jobDescription.trim()) {
       formData.append("jobDescription", jobDescription.trim());
+    }
+    if (jobId.trim()) {
+      formData.append("jobId", jobId.trim());
     }
     const response = await backendRequest<AnalyzeResumeResponse>("/api/resumes/analyze", {
       method: "POST",

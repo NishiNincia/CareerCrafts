@@ -4,6 +4,7 @@ import { extractResumeText } from "../services/resumeFile.js";
 import { geminiAnalysisConfig } from "../services/geminiService.js";
 import { createResumeAnalysisCacheKey } from "../services/resumeAnalysisWorker.js";
 import { enqueueResumeAnalysisJob, findResumeAnalysisJob } from "../services/resumeAnalysisJobs.js";
+import { classifyJobInput, RESUME_ANALYSIS_MODES } from "../services/resumeJobContext.js";
 
 function toResumeResponse(id, filename, parsed, recommendations, createdAt) {
     return {
@@ -17,7 +18,10 @@ function toResumeResponse(id, filename, parsed, recommendations, createdAt) {
 
 async function loadResume(userId, resumeId) {
     const result = await pool.query(
-        `SELECT id, filename, parsed_json, created_at
+        `SELECT id, filename, parsed_json, created_at, job_id, job_title, company_name,
+                custom_job_description, structure_score, compatibility_score,
+                job_requirements, skill_comparisons, keyword_analysis,
+                experience_relevance, project_relevance, improvement_recommendations
          FROM resumes
          WHERE user_id = $1 AND id = $2
          LIMIT 1`,
@@ -46,7 +50,27 @@ async function loadResume(userId, resumeId) {
         matchReason: course.reason,
         matchingSkills: course.matching_skills,
     }));
-    return toResumeResponse(row.id, row.filename, row.parsed_json, recommendations, row.created_at);
+    const parsed = {
+        ...row.parsed_json,
+        job: {
+            id: row.job_id,
+            title: row.job_title,
+            company: row.company_name,
+            description: row.custom_job_description,
+        },
+        metrics: {
+            ...(row.parsed_json?.metrics || {}),
+            structureScore: row.structure_score,
+            compatibilityScore: row.compatibility_score,
+            jobRequirements: row.job_requirements,
+            skillComparisons: row.skill_comparisons,
+            keywordAnalysis: row.keyword_analysis,
+            experienceRelevance: row.experience_relevance,
+            projectRelevance: row.project_relevance,
+            improvementRecommendations: row.improvement_recommendations,
+        },
+    };
+    return toResumeResponse(row.id, row.filename, parsed, recommendations, row.created_at);
 }
 
 function toJobResponse(row, resume = null) {
@@ -99,11 +123,59 @@ export async function analyzeResume(req, res) {
                 message: "Job description exceeds the 20,000 character limit.",
             });
         }
+        const requestedJobTitle = typeof req.body?.jobTitle === "string" ? req.body.jobTitle.trim() : "";
+        if (requestedJobTitle.length > 200) {
+            return res.status(413).json({
+                success: false,
+                message: "Job title exceeds the 200 character limit.",
+            });
+        }
 
+        let selectedJob = null;
+        const requestedJobId = typeof req.body?.jobId === "string" ? req.body.jobId.trim() : "";
+        if (requestedJobId) {
+            const jobResult = await pool.query(
+                `SELECT j.id, j.title, j.description, employer.name AS company,
+                        COALESCE(ARRAY(
+                            SELECT skill.skill FROM marketplace_job_skills skill
+                            WHERE skill.job_id = j.id ORDER BY skill.skill
+                        ), ARRAY[]::TEXT[]) AS skills
+                 FROM marketplace_jobs j
+                 JOIN users employer ON employer.id = j.employer_user_id
+                 WHERE j.id = $1 AND j.status = 'open'
+                 LIMIT 1`,
+                [requestedJobId]
+            );
+            if (!jobResult.rows.length) {
+                return res.status(404).json({ success: false, message: "The selected job was not found or is no longer open." });
+            }
+            selectedJob = jobResult.rows[0];
+        }
+        let effectiveJobDescription = selectedJob
+            ? `Job title: ${selectedJob.title}\nCompany: ${selectedJob.company}\nDescription:\n${selectedJob.description}\nRequired skills: ${(selectedJob.skills || []).join(", ")}`
+            : jobDescription;
+        const jobContext = classifyJobInput({
+            jobDescription: effectiveJobDescription,
+            jobId: selectedJob?.id || "",
+            jobTitle: selectedJob?.title || requestedJobTitle,
+        });
+        if (jobContext.mode === RESUME_ANALYSIS_MODES.ROLE_ONLY) {
+            effectiveJobDescription = jobContext.roleTitle;
+        }
+        if (effectiveJobDescription.length > 20_000) {
+            return res.status(413).json({ success: false, message: "Job description exceeds the 20,000 character limit." });
+        }
+
+        const jobTitle = selectedJob?.title || jobContext.roleTitle || requestedJobTitle;
         const cacheKey = createResumeAnalysisCacheKey({
             userId: req.user.id,
             sourceText: resumeText,
-            jobDescription,
+            jobDescription: effectiveJobDescription,
+            jobId: selectedJob?.id || null,
+            jobTitle,
+            companyName: selectedJob?.company || "",
+            analysisMode: jobContext.mode,
+            normalizedRole: jobContext.normalizedRole,
             model: geminiAnalysisConfig.model,
             fallbackModel: geminiAnalysisConfig.fallbackModel,
         });
@@ -137,10 +209,13 @@ export async function analyzeResume(req, res) {
             cacheKey,
             filename,
             sourceText: resumeText,
-            jobDescription,
+            jobDescription: effectiveJobDescription,
+            jobId: selectedJob?.id || null,
+            jobTitle,
+            companyName: selectedJob?.company || "",
         });
         if (!job) throw new Error("Resume analysis job was not available after enqueue.");
-        console.info(`[Resume analysis] Enqueued job=${job.id} status=${job.status}`);
+        console.info(`[Resume API] Analysis accepted job=${job.id} initialStatus=${job.status} mode=${jobContext.mode}`);
 
         if (job.status === "completed" && job.resume_id) {
             const resume = await loadResume(req.user.id, job.resume_id);
@@ -194,6 +269,7 @@ export async function retryResumeAnalysisJob(req, res) {
             [req.params.jobId, req.user.id]
         );
         if (retried.rows.length) {
+            console.info(`[Resume API] Job transition id=${retried.rows[0].id} status=failed->queued`);
             return res.status(202).json({ success: true, job: toJobResponse(retried.rows[0]) });
         }
 
@@ -226,10 +302,33 @@ export async function getLatestResume(req, res) {
         if (!result.rows.length) {
             return res.status(404).json({ success: false, message: "No analyzed resume was found." });
         }
+
         const resume = await loadResume(req.user.id, result.rows[0].id);
         return res.json({ success: true, resume });
     } catch (error) {
         console.error("Loading analyzed resume failed:", error);
         return res.status(500).json({ success: false, message: "Could not load the analyzed resume." });
+    }
+}
+
+export async function getResumeHistory(req, res) {
+    try {
+        const result = await pool.query(
+            `SELECT id
+             FROM resumes
+             WHERE user_id = $1
+             ORDER BY created_at DESC, id DESC
+             LIMIT 50`,
+            [req.user.id]
+        );
+        const resumes = [];
+        for (const row of result.rows) {
+            const resume = await loadResume(req.user.id, row.id);
+            if (resume) resumes.push(resume);
+        }
+        return res.json({ success: true, data: resumes });
+    } catch (error) {
+        console.error("Loading resume analysis history failed:", error);
+        return res.status(500).json({ success: false, message: "Could not load resume analysis history." });
     }
 }

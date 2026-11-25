@@ -87,3 +87,13 @@ export const requireWorker = (req, res, next) => {
 
     next();
 };
+
+export const requireEmployer = (req, res, next) => {
+    if (req.user.role !== "employer") {
+        return res.status(403).json({
+            success: false,
+            message: "Only employer accounts can manage job listings.",
+        });
+    }
+    next();
+};

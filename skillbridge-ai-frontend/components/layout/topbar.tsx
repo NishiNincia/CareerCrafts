@@ -1,6 +1,7 @@
 "use client";
 
 import { NavLink, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Bell, LogOut, Search } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { getInitials } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
+import { notificationService } from "@/services/notification.service";
 
 interface TopbarProps {
   basePath: string;
@@ -18,6 +20,14 @@ export function Topbar({ basePath, title }: TopbarProps) {
   const navigate = useNavigate();
   const userName = useAuthStore((s) => s.userName);
   const logout = useAuthStore((s) => s.logout);
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ["notifications", "unread-count"],
+    queryFn: notificationService.unreadCount,
+    enabled: Boolean(accessToken),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
 
   return (
     <header className="glass sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border/60 px-4 lg:px-6">
@@ -29,10 +39,10 @@ export function Topbar({ basePath, title }: TopbarProps) {
           <Input placeholder="Search jobs, candidates…" className="w-64 pl-9" aria-label="Search" />
         </div>
 
-        <Button variant="ghost" size="icon" asChild aria-label="Notifications">
+        <Button variant="ghost" size="icon" asChild aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : "Notifications"}>
           <NavLink to={`${basePath}/notifications`} className="relative">
             <Bell className="h-4 w-4" />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-signal-400" />
+            {unreadCount > 0 && <span aria-hidden="true" className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-signal-400" />}
           </NavLink>
         </Button>
 

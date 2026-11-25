@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createGeminiAnalyzer, geminiAnalysisConfig, GeminiAnalysisError } from "./geminiService.js";
+import {
+    createGeminiAnalyzer,
+    createRoleCompetencyGenerator,
+    geminiAnalysisConfig,
+    GeminiAnalysisError,
+} from "./geminiService.js";
 
 function validPayload(overrides = {}) {
     return {
@@ -29,6 +34,43 @@ function validPayload(overrides = {}) {
 
 function response(payload) {
     return { text: JSON.stringify(payload) };
+}
+
+function validRoleProfile() {
+    return {
+        expectedExperienceLevel: "Entry-level candidates commonly demonstrate foundational analysis experience.",
+        technicalSkills: ["SQL", "Python"],
+        coreCompetencies: ["Data interpretation"],
+        toolsAndFrameworks: ["Excel", "Tableau"],
+        educationalExpectations: ["Statistics or a related field"],
+        typicalResponsibilities: ["Prepare reports from structured data"],
+        competencies: [
+            {
+                skillName: "SQL",
+                category: "technical skill",
+                importance: "Critical",
+                description: "Query structured datasets.",
+                relevanceReason: "Commonly used to retrieve and validate business data.",
+                expectation: "essential",
+            },
+            {
+                skillName: "Data interpretation",
+                category: "core competency",
+                importance: "High",
+                description: "Summarize patterns in analyzed data.",
+                relevanceReason: "Supports accurate recommendations from analysis.",
+                expectation: "essential",
+            },
+            {
+                skillName: "Tableau",
+                category: "tool/framework",
+                importance: "Medium",
+                description: "Create interactive data visualizations.",
+                relevanceReason: "Common in reporting and dashboard workflows.",
+                expectation: "preferred",
+            },
+        ],
+    };
 }
 
 test("configured timeout and retry budget cover two long attempts and backoff", () => {
@@ -60,11 +102,124 @@ test("Gemini analyzer validates structured output and bounds prompt, output, and
     assert.ok(request.contents[0].parts[0].text.includes("JOB DESCRIPTION\nBuild reliable services"));
     assert.ok(request.contents[0].parts[0].text.length < 15_000);
     assert.equal(request.config.responseMimeType, "application/json");
-    assert.equal(request.config.maxOutputTokens, 4_096);
+    assert.equal(request.config.responseJsonSchema, undefined);
+    assert.equal(request.config.maxOutputTokens, 6_144);
     assert.equal(request.config.temperature, 0.2);
     assert.deepEqual(request.config.thinkingConfig, { thinkingLevel: "low" });
     assert.equal(request.config.httpOptions.timeout, 45_000);
     assert.equal(request.config.httpOptions.retryOptions, undefined);
+});
+
+test("Gemini analyzer fills missing keyword analysis groups with empty arrays", async () => {
+    const analyze = createGeminiAnalyzer({
+        generateContent: async () => response(validPayload({
+            keywordAnalysis: { present: ["Python"] },
+        })),
+        maxAttempts: 1,
+    });
+
+    const profile = await analyze({ resumeText: "Python engineer" });
+
+    assert.deepEqual(profile.keywordAnalysis, {
+        present: ["Python"],
+        missingImportant: [],
+        presentWithoutEvidence: [],
+        shouldHighlight: [],
+        requireAcquisition: [],
+    });
+});
+
+test("Gemini accepts a resume profile containing education and skills without a summary or project", async () => {
+    const analyze = createGeminiAnalyzer({
+        generateContent: async () => response(validPayload({
+            professionalSummary: "",
+            experienceSummaries: [],
+            projectSummaries: [],
+            education: [{ degree: "B.S. Computer Science", school: "State University", year: "2025" }],
+            skills: { technical: ["JavaScript"], tools: [], soft: [] },
+        })),
+        maxAttempts: 1,
+    });
+
+    const profile = await analyze({ resumeText: "Education and skills section" });
+
+    assert.equal(profile.professionalSummary, null);
+    assert.equal(profile.education.length, 1);
+    assert.deepEqual(profile.skills.technical, ["JavaScript"]);
+});
+
+test("Gemini rejects a profile with no usable resume content", async () => {
+    const analyze = createGeminiAnalyzer({
+        generateContent: async () => response({
+            professionalSummary: "",
+            experienceSummaries: [],
+            education: [],
+            projectSummaries: [],
+            skills: { technical: [], tools: [], soft: [] },
+            certifications: [],
+        }),
+        maxAttempts: 1,
+    });
+
+    await assert.rejects(
+        analyze({ resumeText: "Resume text that could not be understood" }),
+        (error) => error instanceof GeminiAnalysisError && error.code === "GEMINI_EMPTY_ANALYSIS"
+    );
+});
+
+test("Gemini analyzer extracts JSON from a fenced or prefaced response", async () => {
+    const payload = validPayload();
+    const analyze = createGeminiAnalyzer({
+        generateContent: async () => ({
+            text: `Analysis result:\n\`\`\`json\n${JSON.stringify(payload)}\n\`\`\``,
+        }),
+        maxAttempts: 1,
+    });
+
+    const profile = await analyze({ resumeText: "Data scientist" });
+
+    assert.equal(profile.professionalSummary, payload.professionalSummary);
+});
+
+test("role competency generation validates a generic profile and caches normalized role plus experience level", async () => {
+    let calls = 0;
+    const cache = new Map();
+    const generateProfile = createRoleCompetencyGenerator({
+        generateContent: async (request) => {
+            calls += 1;
+            assert.equal(request.config.responseMimeType, "application/json");
+            assert.equal(request.config.responseJsonSchema, undefined);
+            assert.match(request.contents[0].parts[0].text, /inferred common expectations/);
+            return response(validRoleProfile());
+        },
+        model: "gemini-primary",
+        fallbackModel: "gemini-fallback",
+        cache,
+        now: () => 1_000,
+        sleep: async () => {},
+    });
+
+    const first = await generateProfile({ roleTitle: "Data Analyst Intern", experienceLevel: "Beginner" });
+    const normalizedCacheHit = await generateProfile({ roleTitle: "  data analyst  intern ", experienceLevel: "Beginner" });
+    const differentLevel = await generateProfile({ roleTitle: "Data Analyst Intern", experienceLevel: "Intermediate" });
+
+    assert.equal(first.competencies[0].skillId, "sql");
+    assert.equal(first.competencies[0].matchStatus, undefined);
+    assert.equal(normalizedCacheHit.roleTitle, "Data Analyst Intern");
+    assert.equal(differentLevel.experienceLevel, "Intermediate");
+    assert.equal(calls, 2);
+});
+
+test("role competency profile validation rejects profiles without sufficient competencies", async () => {
+    const generateProfile = createRoleCompetencyGenerator({
+        generateContent: async () => response({ competencies: [] }),
+        maxAttempts: 1,
+        fallbackModel: geminiAnalysisConfig.model,
+    });
+    await assert.rejects(
+        generateProfile({ roleTitle: "Machine Learning Engineer" }),
+        (error) => error.code === "GEMINI_INVALID_ROLE_PROFILE"
+    );
 });
 
 test("Gemini analyzer retries 429 according to Retry-After", async () => {
@@ -265,21 +420,25 @@ test("Gemini analyzer sends an abort signal to the SDK", async () => {
     assert.equal(request.config.abortSignal, abortController.signal);
 });
 
-test("Gemini analyzer rejects malformed JSON without retrying", async () => {
-    let calls = 0;
+test("Gemini analyzer retries malformed JSON with the fallback model", async () => {
+    const models = [];
     const analyze = createGeminiAnalyzer({
-        generateContent: async () => {
-            calls += 1;
-            return { text: "{not json}" };
+        generateContent: async (request) => {
+            models.push(request.model);
+            return models.length === 1 ? { text: "{not json}" } : response(validPayload());
         },
+        sleep: async () => {},
         maxAttempts: 2,
+        retryBudgetMs: 5_000,
+        requestTimeoutMs: 1_000,
+        model: "gemini-primary",
+        fallbackModel: "gemini-fallback",
     });
 
-    await assert.rejects(
-        analyze({ resumeText: "Data analyst" }),
-        (error) => error.code === "GEMINI_INVALID_JSON"
-    );
-    assert.equal(calls, 1);
+    const profile = await analyze({ resumeText: "Data analyst" });
+
+    assert.deepEqual(models, ["gemini-primary", "gemini-fallback"]);
+    assert.equal(profile.analysisModel, "gemini-fallback");
 });
 
 test("Gemini analyzer fails after bounded transient retries", async () => {

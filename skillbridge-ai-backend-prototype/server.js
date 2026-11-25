@@ -9,10 +9,14 @@ import pool from './src/config/db.js';
 import resumeRoutes from './src/routes/resume.js';
 import recommendationRoutes from './src/routes/recommendation.js';
 import learningRoutes from './src/routes/learning.js';
+import notificationRoutes from './src/routes/notifications.js';
+import chatRoutes from './src/routes/chat.js';
 import { getCompanyEligibility } from './src/services/companyEligibility.js';
 import { validateGigPayload } from './src/services/gigValidation.js';
 import { ensureResumeSchema } from './src/services/resumeSchema.js';
 import { ensureJobListingsSchema } from './src/services/jobListings.js';
+import { ensureCommunicationSchema } from './src/services/communicationSchema.js';
+import { notifyWorkersOfNewGig } from './src/services/notificationCenter.js';
 import { startResumeAnalysisWorker } from './src/services/resumeAnalysisWorker.js';
 import {
   applyToJob,
@@ -27,6 +31,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('etag', false);
 const DEFAULT_PORT = Number(process.env.PORT || 4000);
 const SECRET = process.env.JWT_SECRET;
 if (!SECRET) {
@@ -35,6 +40,10 @@ if (!SECRET) {
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 
 const mockDir = path.join(__dirname, '..', 'skillbridge-ai-frontend', 'mock');
 
@@ -134,6 +143,7 @@ async function initializeDatabase() {
 await initializeDatabase();
 await ensureJobListingsSchema(pool);
 await ensureResumeSchema();
+await ensureCommunicationSchema(pool);
 startResumeAnalysisWorker();
 
 function createToken(user) {
@@ -259,6 +269,8 @@ app.use('/api/resumes', (req, res, next) => {
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/learning', learningRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/chat', chatRoutes);
 
 app.get('/api/v1/me', authMiddleware, async (req, res) => {
   try {
@@ -980,8 +992,11 @@ app.post('/api/v1/employer/gigs', authMiddleware, requireRole('employer'), async
   const validation = validateGigPayload(req.body);
   if (validation.error) return res.status(400).json({ success: false, message: validation.error });
   const gig = validation.value;
+  let client;
   try {
-    const result = await pool.query(
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const result = await client.query(
       `INSERT INTO gigs (
          creator_id, title, description, required_skills, budget, deadline,
          work_mode, location_address, location_lat, location_lng
@@ -993,10 +1008,28 @@ app.post('/api/v1/employer/gigs', authMiddleware, requireRole('employer'), async
         gig.deadline, gig.workMode, gig.locationAddress, gig.locationLat, gig.locationLng,
       ]
     );
+    const createdGig = result.rows[0];
+    await notifyWorkersOfNewGig(client, {
+      id: createdGig.id,
+      title: createdGig.title,
+      work_mode: createdGig.work_mode,
+      latitude: createdGig.location_lat,
+      longitude: createdGig.location_lng,
+    });
+    await client.query('COMMIT');
     return res.status(201).json({ success: true, data: mapGig({ ...result.rows[0], creator_name: '' }) });
   } catch (error) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Rolling back gig creation failed:', rollbackError);
+      }
+    }
     console.error('Creating gig failed:', error);
     return res.status(500).json({ success: false, message: 'Could not create this gig.' });
+  } finally {
+    client?.release();
   }
 });
 

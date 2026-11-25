@@ -62,6 +62,18 @@ ALTER TABLE resumes ADD COLUMN IF NOT EXISTS missing_skills TEXT[] NOT NULL DEFA
 ALTER TABLE resumes ADD COLUMN IF NOT EXISTS parsed_json JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE resumes ADD COLUMN IF NOT EXISTS source_text TEXT NOT NULL DEFAULT '';
 ALTER TABLE resumes ADD COLUMN IF NOT EXISTS analysis_cache_key TEXT;
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS job_id UUID;
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS job_title TEXT NOT NULL DEFAULT '';
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS company_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS custom_job_description TEXT NOT NULL DEFAULT '';
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS structure_score SMALLINT;
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS compatibility_score SMALLINT;
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS job_requirements JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS skill_comparisons JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS keyword_analysis JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS experience_relevance JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS project_relevance JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE resumes ADD COLUMN IF NOT EXISTS improvement_recommendations JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE INDEX IF NOT EXISTS resumes_user_created_idx ON resumes (user_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS resumes_user_analysis_cache_idx
@@ -75,6 +87,9 @@ CREATE TABLE IF NOT EXISTS resume_analysis_jobs (
     filename TEXT NOT NULL,
     source_text TEXT NOT NULL,
     job_description TEXT NOT NULL DEFAULT '',
+    job_id UUID,
+    job_title TEXT NOT NULL DEFAULT '',
+    company_name TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'queued'
         CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
     stage TEXT NOT NULL DEFAULT 'queued',
@@ -86,6 +101,10 @@ CREATE TABLE IF NOT EXISTS resume_analysis_jobs (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (user_id, cache_key)
 );
+
+ALTER TABLE resume_analysis_jobs ADD COLUMN IF NOT EXISTS job_id UUID;
+ALTER TABLE resume_analysis_jobs ADD COLUMN IF NOT EXISTS job_title TEXT NOT NULL DEFAULT '';
+ALTER TABLE resume_analysis_jobs ADD COLUMN IF NOT EXISTS company_name TEXT NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS resume_analysis_jobs_user_created_idx
     ON resume_analysis_jobs (user_id, created_at DESC);

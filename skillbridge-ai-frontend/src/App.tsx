@@ -10,13 +10,9 @@ import LoginPage from "@/app/(auth)/login/page";
 import RegisterPage from "@/app/(auth)/register/page";
 import EmployerDashboardPage from "@/app/employer/dashboard/page";
 import EmployerGigsPage from "@/app/employer/gigs/page";
-import EmployerAnalyticsPage from "@/app/employer/analytics/page";
 import EmployerCandidatesPage from "@/app/employer/candidates/page";
-import EmployerPaymentsPage from "@/app/employer/payments/page";
 import EmployerPostGigPage from "@/app/employer/post-gig/page";
 import EmployerPostJobPage from "@/app/employer/post-job/page";
-import EmployerReviewsPage from "@/app/employer/reviews/page";
-import EmployerTrackingPage from "@/app/employer/tracking/page";
 import WorkerDashboardPage from "@/app/worker/dashboard/page";
 import WorkerGigsPage from "@/app/worker/gigs/page";
 import WorkerJobsPage from "@/app/worker/jobs/page";
@@ -66,14 +62,13 @@ export default function App() {
               <Route index element={<Navigate to="/employer/dashboard" replace />} />
               <Route path="dashboard" element={<EmployerDashboardPage />} />
               <Route path="gigs" element={<EmployerGigsPage />} />
-              <Route path="analytics" element={<EmployerAnalyticsPage />} />
               <Route path="candidates" element={<EmployerCandidatesPage />} />
-              <Route path="payments" element={<EmployerPaymentsPage />} />
+              <Route path="messages" element={<WorkerMessagesPage />} />
+              <Route path="notifications" element={<WorkerNotificationsPage />} />
               <Route path="post-gig" element={<EmployerPostGigPage />} />
               <Route path="post-job" element={<EmployerPostJobPage />} />
-              <Route path="reviews" element={<EmployerReviewsPage />} />
               <Route path="schemes" element={<EmployerSchemesPage />} />
-              <Route path="tracking" element={<EmployerTrackingPage />} />
+              <Route path="*" element={<Navigate to="/employer/dashboard" replace />} />
             </Route>
 
             <Route

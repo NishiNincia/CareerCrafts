@@ -7,9 +7,10 @@ PostgreSQL stores user accounts, job and gig applications, projects, resume
 analyses, learning roadmaps, and progress. Some secondary prototype views and
 the scheme catalogue are supplied from JSON fixtures.
 
-At startup the backend applies the idempotent
-`prisma/resume-analysis.sql` and `prisma/job-listings.sql` schema updates and
-creates the gig/project tables. The resume schema extends the existing
+The `npm start` entry point is `server.js`. At startup it applies the
+idempotent `prisma/resume-analysis.sql`, `prisma/job-listings.sql`, and
+`prisma/notifications-chat.sql` schema updates and creates the gig/project
+tables. The resume schema extends the existing
 PostgreSQL `resumes` table and creates normalized tables for experience,
 education, projects, skills, certifications, courses, saved course
 recommendations, analysis jobs, and learning roadmaps. Extracted resume text is
@@ -47,23 +48,54 @@ All resume and recommendation endpoints require an authorization token.
   manual entry.
 - `POST /api/v1/worker/jobs/:jobId/applications` records a worker's application
   to an open job.
+- `GET /api/notifications` and `GET /api/notifications/unread-count` return
+  the signed-in user's notifications. Visiting the notification page marks
+  them read. Workers use `GET /api/notifications/preferences` and
+  `PUT /api/notifications/preferences` to set a gig radius (default 10 km) and
+  location.
+- `GET /api/chat/contacts`, `GET /api/chat/conversations`, and
+  `GET /api/chat/conversations/:conversationId/messages` provide contacts and
+  message history. `POST /api/chat/messages` sends a message and creates a
+  notification for its recipient;
+  `PATCH /api/chat/conversations/:conversationId/read` marks incoming messages
+  read.
 
 PDF and DOCX text extraction remains in the request path; Gemini analysis,
 profile scoring, course matching, and persistence run in a PostgreSQL-backed
-worker. The Gemini request uses JSON structured output and a short per-attempt
-timeout, with at most one bounded retry for transient provider errors. Model
-availability and supported generation settings are documented at
+worker. Gemini is asked for compact JSON output without a provider-side response
+schema; the backend extracts, normalizes, and validates the parsed JSON. Requests
+use a short per-attempt timeout, with at most one bounded retry for transient
+provider errors or malformed JSON from the primary model. Model availability
+and supported generation settings are documented at
 https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash and
 https://ai.google.dev/gemini-api/docs/structured-output.
 
-Scores are deterministic, not model-generated: ATS score is the percentage of
-five detected sections (contact, summary, experience, education, skills);
-profile completion is the percentage of six profile fields (name, summary,
-experience, education, skills, projects); skill strength is 10 points per
-distinct extracted skill, capped at 100; resume score is 50% ATS + 30% profile
-completion + 20% skill strength. Job-specific missing keywords come from the
-Gemini comparison to the supplied job description. When no job description is
-provided, the parser's general career-level skill gaps are shown instead.
+Resume analysis classifies input into three modes. A selected job ID or a
+detailed description uses `FULL_JOB_DESCRIPTION`: Gemini extracts only
+requirements explicitly present in that description, and the backend matches
+them against resume evidence. A recognized short role title uses `ROLE_ONLY`:
+Gemini generates a cached generic competency profile keyed by normalized role
+and experience level, and the result is labeled as an estimate rather than an
+employer requirement. An empty job description and job ID uses
+`NO_JOB_CONTEXT`: only resume quality is scored, with no job compatibility
+score. Ambiguous short input is rejected with `INVALID_JOB_CONTEXT`.
+
+All scores and requirement match states are calculated by the backend, not
+Gemini. ATS score is the percentage of five detected sections (contact,
+summary, experience, education, skills); profile completion is the percentage
+of six profile fields (name, summary, experience, education, skills, projects);
+skill strength is 10 points per distinct extracted skill, capped at 100; resume
+score is 50% ATS + 30% profile completion + 20% skill strength. Resume
+structure is scored separately from extracted-text assessable criteria.
+Employer-specific and estimated role compatibility scores are separate. A
+resume-only result contains general improvement suggestions instead of
+job-specific missing keywords. If Gemini returns no usable profile but the
+local parser identifies at least two resume sections, the worker completes the
+analysis from those extracted fields and marks the provider as
+`Local Resume Parser`. Employer matching is left unavailable in that fallback; the page
+discloses that limitation. If local extraction also lacks enough resume
+content, the analysis still fails with an actionable error rather than saving
+empty results.
 
 The career level uses the frontend's `Beginner`, `Intermediate`, and `Advanced`
 categories. Five or more years, senior titles, mentoring, or large-system
@@ -158,7 +190,7 @@ not explicitly configured by this application; resume-analysis retries are
 managed by the backend. Gemini 3 models use low thinking level; 2.5 models use
 a zero thinking budget for resume analysis. Resume-analysis prompts are capped
 at 14000 resume characters and 3000
-job-description characters with a 4096-token output cap. Truncated responses
+job-description characters with a 6144-token output cap. Truncated responses
 are reported as failures and are not persisted as successful analyses.
 SDK failures log the SDK error name/code, actual HTTP status, failure origin,
 and elapsed time. The frontend connects to `http://localhost:4000` by default; set

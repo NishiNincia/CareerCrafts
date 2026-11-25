@@ -72,13 +72,13 @@ export default function ResumeAIPage() {
     return job.resume;
   }, []);
 
-  const handleFileSelect = useCallback(async (file: File, jobDescription: string) => {
+  const handleFileSelect = useCallback(async (file: File, jobDescription: string, jobId = "") => {
     if (!accessToken) throw new ApiError("Sign in again to analyze a resume.", 401);
     setPageError(null);
     setAnalysisJob(null);
     setIsAnalyzing(true);
     try {
-      const job = await resumeService.analyze(file, accessToken, jobDescription);
+      const job = await resumeService.analyze(file, accessToken, jobDescription, jobId);
       if (job.status === "completed" && job.resume) {
         setAnalysis(job.resume);
         setAnalysisJob(job);
@@ -173,7 +173,16 @@ export default function ResumeAIPage() {
         </CardContent>
       </Card>
 
-      {analysis && analysis.analysisProvider !== "Gemini" && (
+      {analysis?.analysisProvider === "Local Resume Parser" && (
+        <Card className="mb-4 border-signal-500/30 bg-signal-500/5">
+          <CardContent className="p-4 text-sm">
+            <p className="font-medium">Gemini returned too little structured resume content.</p>
+            <p className="mt-1 text-muted-foreground">These results use the resume text extracted locally. Some AI-generated details may be unavailable; check the extracted profile before relying on the analysis.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {analysis && analysis.analysisProvider !== "Gemini" && analysis.analysisProvider !== "Local Resume Parser" && (
         <Card className="mb-4 border-signal-500/30 bg-signal-500/5">
           <CardContent className="p-4 text-sm">
             <p className="font-medium">This saved analysis predates Gemini analysis.</p>
@@ -182,7 +191,7 @@ export default function ResumeAIPage() {
         </Card>
       )}
 
-      {analysis && <ResumeAnalysisCard metrics={analysis.metrics} />}
+      {analysis && <ResumeAnalysisCard metrics={analysis.metrics} analysisProvider={analysis.analysisProvider} />}
 
       <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="space-y-4">

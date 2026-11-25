@@ -4,6 +4,7 @@ import {
     mapJobListing,
     validateJobPayload,
 } from "../services/jobListings.js";
+import { notifyWorkersOfNewJob } from "../services/notificationCenter.js";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -296,6 +297,7 @@ export async function createEmployerJob(req, res) {
              SELECT $1, skill FROM unnest($2::TEXT[]) AS skill`,
             [job.id, validation.value.skills]
         );
+        await notifyWorkersOfNewJob(client, { ...job, company: req.user.name });
         await client.query("COMMIT");
         transactionOpen = false;
 

@@ -26,11 +26,8 @@ export const EMPLOYER_NAV: NavItem[] = [
   { label: "Post a Gig", href: "/post-gig", icon: "PlusSquare" },
   { label: "Manage Gigs", href: "/gigs", icon: "BriefcaseBusiness" },
   { label: "Candidates", href: "/candidates", icon: "Users" },
+  { label: "Messages", href: "/messages", icon: "MessageSquare" },
   { label: "Small Business Schemes", href: "/schemes", icon: "Landmark" },
-  { label: "Live Tracking", href: "/tracking", icon: "Radar" },
-  { label: "Analytics", href: "/analytics", icon: "BarChart3" },
-  { label: "Payments", href: "/payments", icon: "Wallet" },
-  { label: "Reviews", href: "/reviews", icon: "Star" },
 ];
 
 export const GIG_RESPONSE_WINDOW_SECONDS = 20;

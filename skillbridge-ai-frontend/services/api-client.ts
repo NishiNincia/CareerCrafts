@@ -29,7 +29,14 @@ export class ApiError extends Error {
 export async function backendRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${BACKEND_API_URL}${path}`, init);
+    const headers = new Headers(init.headers);
+    headers.set("cache-control", "no-cache, no-store, max-age=0");
+    headers.set("pragma", "no-cache");
+    response = await fetch(`${BACKEND_API_URL}${path}`, {
+      ...init,
+      cache: "no-store",
+      headers,
+    });
   } catch {
     throw new ApiError("Could not reach the backend. Check that the API server is running.", 0);
   }
@@ -39,7 +46,11 @@ export async function backendRequest<T>(path: string, init: RequestInit = {}): P
     if (response.status === 401) {
       useAuthStore.getState().logout();
     }
-    throw new ApiError(payload?.message ?? "The backend request failed.", response.status, payload?.code);
+    throw new ApiError(
+      payload?.message ?? `The backend request failed with HTTP ${response.status} (${path}).`,
+      response.status,
+      payload?.code,
+    );
   }
 
   return payload as T;
