@@ -47,9 +47,8 @@ manage production configuration in Vercel.
   `/worker/projects`, `/worker/resume-ai`, `/worker/learning`,
   `/worker/profile`, `/worker/messages`, and `/worker/notifications`.
 - Employer: `/employer/dashboard`, `/employer/post-job`, `/employer/post-gig`,
-  `/employer/gigs`, `/employer/schemes`, `/employer/analytics`,
-  `/employer/candidates`, `/employer/payments`, `/employer/reviews`, and
-  `/employer/tracking`.
+  `/employer/gigs`, `/employer/candidates`, `/employer/schemes`,
+  `/employer/messages`, and `/employer/notifications`.
 - Authentication: `/login` and `/register`.
 
 Portal routes require authentication and the matching worker or employer role.

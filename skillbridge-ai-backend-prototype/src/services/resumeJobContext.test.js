@@ -46,3 +46,23 @@ test("classifies an explicit job title and an empty context", () => {
         RESUME_ANALYSIS_MODES.FULL_JOB_DESCRIPTION
     );
 });
+
+test("classifies 100000 mixed job contexts within 1000ms", () => {
+    const inputs = [
+        { jobDescription: "" },
+        { jobDescription: "Data Analyst Intern" },
+        {
+            jobDescription: "Responsibilities: build dashboards. Requirements: SQL proficiency.",
+            jobTitle: "Data Analyst Intern",
+        },
+    ];
+    const iterations = 100000;
+    const startedAt = process.hrtime.bigint();
+
+    for (let index = 0; index < iterations; index += 1) {
+        classifyJobInput(inputs[index % inputs.length]);
+    }
+
+    const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    assert.ok(elapsedMs < 1000, `100000 classifications took ${elapsedMs.toFixed(2)}ms`);
+});
